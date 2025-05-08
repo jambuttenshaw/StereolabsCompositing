@@ -2,6 +2,9 @@
 
 #include "StereolabsCompositing.h"
 
+#include "ISettingsModule.h"
+#include "StereolabsCompositingSettings.h"
+
 #define LOCTEXT_NAMESPACE "FNPRToolsModule"
 
 DEFINE_LOG_CATEGORY(LogStereolabsCompositing);
@@ -9,11 +12,17 @@ DEFINE_LOG_CATEGORY(LogStereolabsCompositing);
 
 void FStereolabsCompositingModule::StartupModule()
 {
-	// Stereolabs module is not set to load on PostConfigInit, so shader source mapping is not set at correct time.
-	// Instead of modifying that module I will just map shader source here
-	//FString PluginDir = FPaths::Combine(FPaths::ProjectPluginsDir(), TEXT("Stereolabs"));
-	//FString ShaderDirectory = FPaths::Combine(PluginDir, TEXT("Shaders"));
-	//AddShaderSourceDirectoryMapping("/Plugin/Stereolabs", ShaderDirectory);
+	FString PluginDir = FPaths::Combine(FPaths::ProjectPluginsDir(), TEXT("StereolabsCompositing"));
+	FString ShaderDirectory = FPaths::Combine(PluginDir, TEXT("Shaders"));
+	AddShaderSourceDirectoryMapping("/Plugin/StereolabsCompositing", ShaderDirectory);
+
+	if (ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings"))
+	{
+		SettingsModule->RegisterSettings("Project", "Plugins", "Stereolabs Settings",
+			LOCTEXT("RuntimeSettingsName", "Stereolabs"), LOCTEXT("RuntimeSettingsDescription", "Configure ZED Camera Settings"),
+			GetMutableDefault<UStereolabsCompositingSettings>());
+
+	}
 }
 
 void FStereolabsCompositingModule::ShutdownModule()

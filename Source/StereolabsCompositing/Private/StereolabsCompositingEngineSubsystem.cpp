@@ -2,10 +2,11 @@
 
 #include "StereolabsCompositingEngineSubsystem.h"
 
-#include "Stereolabs/Public/Core/StereolabsCoreGlobals.h"
+#include "StereolabsCompositing.h"
 
+#include "Core/StereolabsCoreGlobals.h"
 #include "Core/StereolabsCameraProxy.h"
-#include "Core/StereolabsSettings.h"
+#include "StereolabsCompositingSettings.h"
 #include "Core/StereolabsTextureBatch.h"
 
 
@@ -23,7 +24,7 @@ void UStereolabsCompositingEngineSubsystem::Initialize(FSubsystemCollectionBase&
 
 		if(!GSlCameraProxy->IsCameraOpened())
 		{
-			const FSlInitParameters& InitParams = GetMutableDefault<UStereolabsSettings>()->InitParams;
+			const FSlInitParameters& InitParams = GetMutableDefault<UStereolabsCompositingSettings>()->InitParams;
 
 			if (InitParams.bLoop)
 			{
@@ -59,7 +60,7 @@ void UStereolabsCompositingEngineSubsystem::Tick(float DeltaTime)
 {
 	if (!GSlCameraProxy->IsCameraOpened())
 	{
-		UE_LOG(LogTemp, Error, TEXT("Stereolabs Compositing Subsystem should not be ticking while camera is not open!"));
+		UE_LOG(LogStereolabsCompositing, Error, TEXT("Stereolabs Compositing Subsystem should not be ticking while camera is not open!"));
 		return;
 	}
 

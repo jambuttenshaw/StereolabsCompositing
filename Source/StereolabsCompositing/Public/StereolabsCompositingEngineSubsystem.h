@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "Tickable.h"
 #include "Subsystems/EngineSubsystem.h"
-#include "Stereolabs/Public/Core/StereolabsCameraProxy.h"
+#include "Core/StereolabsCameraProxy.h"
 
 #include "StereolabsCompositingEngineSubsystem.generated.h"
 

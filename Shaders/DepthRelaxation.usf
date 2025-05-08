@@ -1,0 +1,83 @@
+#include "/Engine/Private/Common.ush"
+#include "/Engine/Private/ScreenPass.ush"
+
+SCREEN_PASS_TEXTURE_VIEWPORT(OutViewPort)
+SCREEN_PASS_TEXTURE_VIEWPORT(InViewPort)
+
+
+Texture2D InTex;
+SamplerState sampler0; // Bilinear sampler to perform interpolation
+
+
+// Ensures that the texture is set up correctly for use in the rest of the relaxation pipeline
+float4 PreProcessDepthPS(
+	float2 InUV : TEXCOORD0
+) : SV_Target0
+{
+	float D = InTex.Sample(sampler0, InUV);
+	return float4(D.xxx, D == 0.0f); // Alpha channel indicates missing depth data (camera will give D = 0 when confidence is low)
+}
+
+
+float4 RestrictPS(
+	float2 InUV : TEXCOORD0
+) : SV_Target0
+{
+	int2 PixelCoord = InUV * InViewPort_Extent;
+
+	float4 Sum = 0.0f;
+	float4 Temp;
+
+	Temp = InTex[PixelCoord + int2(0, 0)]; if(Temp.w > 0) { Sum += Temp; }
+	Temp = InTex[PixelCoord + int2(1, 0)]; if(Temp.w > 0) { Sum += Temp; }
+	Temp = InTex[PixelCoord + int2(0, 1)]; if(Temp.w > 0) { Sum += Temp; }
+	Temp = InTex[PixelCoord + int2(1, 1)]; if(Temp.w > 0) { Sum += Temp; }
+
+	if (Sum.w > 0)
+	{
+		Sum /= Sum.w;
+	}
+
+	return Sum;
+}
+
+
+float4 InterpolatePS(
+	float2 InUV : TEXCOORD0
+) : SV_Target0
+{
+	int2 PixelCoord = InUV * InViewPort_Extent;
+
+	float4 D = InTex[PixelCoord];
+
+	// Non-boundary pixels should bilinearly interpolate
+	if (D.w < 1)
+	{
+		D = InTex.Sample(sampler0, InUV);
+		D.w = 0;
+	}
+
+	return D;
+}
+
+
+float4 JacobiStepPS(
+	float2 InUV : TEXCOORD0
+) : SV_Target0
+{
+	int2 PixelCoord = InUV * InViewPort_Extent;
+
+	float4 D = InTex[PixelCoord];
+
+	if (D.w < 1)
+	{
+		D  = InTex[PixelCoord + int2(1, 0)];
+		D += InTex[PixelCoord + int2(-1, 0)];
+		D += InTex[PixelCoord + int2(0, 1)];
+		D += InTex[PixelCoord + int2(0, -1)];
+		D *= 0.25f;
+		D.w = 0;
+	}
+
+	return D;
+}
