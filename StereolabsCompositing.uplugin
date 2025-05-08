@@ -16,9 +16,24 @@
 	"Installed": false,
 	"Modules": [
 		{
+			"Name": "StereolabsCompositing",
+			"Type": "Runtime",
+			"LoadingPhase": "PostConfigInit"
+		},
+		{
 			"Name": "StereolabsCompositingEditor",
 			"Type": "Editor",
 			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "Composure",
+			"Enabled": true
+		},
+		{
+			"Name": "Stereolabs",
+			"Enabled": true
 		}
 	]
 }
