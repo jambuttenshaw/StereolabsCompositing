@@ -16,7 +16,7 @@
 	"Installed": false,
 	"Modules": [
 		{
-			"Name": "StereolabsCompositing",
+			"Name": "StereolabsCompositingEditor",
 			"Type": "Editor",
 			"LoadingPhase": "Default"
 		}

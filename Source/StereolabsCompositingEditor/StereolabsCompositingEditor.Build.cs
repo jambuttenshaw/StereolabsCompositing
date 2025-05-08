@@ -2,9 +2,9 @@
 
 using UnrealBuildTool;
 
-public class StereolabsCompositing : ModuleRules
+public class StereolabsCompositingEditor : ModuleRules
 {
-	public StereolabsCompositing(ReadOnlyTargetRules Target) : base(Target)
+	public StereolabsCompositingEditor(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 		
