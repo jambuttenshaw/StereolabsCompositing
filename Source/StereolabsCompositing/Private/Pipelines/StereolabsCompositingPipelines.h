@@ -3,17 +3,21 @@
 #include "RenderGraphFwd.h"
 
 
-struct DepthRelaxationParameters
+struct FDepthProcessingParametersProxy
 {
+	// Relaxation parameters
 	bool bEnableJacobiSteps;
 	uint32 NumJacobiSteps;
+
+	// Post-processing parameters
+	float FarClipDistance;
 };
 
 namespace StereolabsCompositing
 {
-	void ExecuteDepthRelaxationPipeline(
+	void ExecuteDepthProcessingPipeline(
 		FRDGBuilder& GraphBuilder,
-		const DepthRelaxationParameters& Parameters,
+		const FDepthProcessingParametersProxy& Parameters,
 		FRDGTextureRef InTexture,				
 		FRDGTextureRef OutTexture				
 	);

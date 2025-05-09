@@ -58,29 +58,30 @@ FRDGTextureRef CreateTextureFrom(FRDGBuilder& GraphBuilder, FRDGTextureRef InTex
 }
 
 
-void StereolabsCompositing::ExecuteDepthRelaxationPipeline(
+void StereolabsCompositing::ExecuteDepthProcessingPipeline(
 	FRDGBuilder& GraphBuilder, 
-	const DepthRelaxationParameters& Parameters,
+	const FDepthProcessingParametersProxy& Parameters,
 	FRDGTextureRef InTexture,
 	FRDGTextureRef OutTexture
 )
 {
 	check(IsInRenderingThread());
 
+	FRDGTextureRef TempTexture = CreateTextureFrom(GraphBuilder, OutTexture, TEXT("StereolabsCompositingDepthProcessing.Temp"));
 
 	StereolabsCompositing::AddPass<FPreProcessDepthPS>(
 		GraphBuilder,
 		RDG_EVENT_NAME("PreProcessDepth"),
-		OutTexture,
+		TempTexture,
 		[&](auto PassParameters)
 		{
 			PassParameters->InTex = GraphBuilder.CreateSRV(InTexture);
 		}
 	);
 
+	/*
 	if (Parameters.bEnableJacobiSteps)
 	{
-		FRDGTextureRef PingTexture = CreateTextureFrom(GraphBuilder, OutTexture, TEXT("StereolabsCompositingDepthRelaxation.Ping"));
 
 		for (uint32 i = 0; i < Parameters.NumJacobiSteps; i++)
 		{
@@ -105,4 +106,17 @@ void StereolabsCompositing::ExecuteDepthRelaxationPipeline(
 			);
 		}
 	}
+	*/
+
+	// Post Processing
+	StereolabsCompositing::AddPass<FDepthClippingPS>(
+		GraphBuilder,
+		RDG_EVENT_NAME("DepthClipping"),
+		OutTexture,
+		[&](auto PassParameters)
+		{
+			PassParameters->FarClipDistance = Parameters.FarClipDistance;
+			PassParameters->InTex = GraphBuilder.CreateSRV(TempTexture);
+		}
+	);
 }

@@ -4,7 +4,7 @@
 #include "RenderGraphBuilder.h"
 
 
-UTexture* UCompositingStereolabsDepthRelaxationPass::ApplyTransform_Implementation(UTexture* Input, UComposurePostProcessingPassProxy* PostProcessProxy, ACameraActor* TargetCamera)
+UTexture* UCompositingStereolabsDepthProcessingPass::ApplyTransform_Implementation(UTexture* Input, UComposurePostProcessingPassProxy* PostProcessProxy, ACameraActor* TargetCamera)
 {
 	UTexture* Result = Input;
 
@@ -21,9 +21,10 @@ UTexture* UCompositingStereolabsDepthRelaxationPass::ApplyTransform_Implementati
 		UTextureRenderTarget2D* RenderTarget = RequestRenderTarget(Dims, PF_FloatRGBA);
 		if (RenderTarget && RenderTarget->GetResource())
 		{
-			DepthRelaxationParameters Params;
-			Params.bEnableJacobiSteps = bEnableJacobi;
-			Params.NumJacobiSteps = NumJacobiPasses;
+			FDepthProcessingParametersProxy Params;
+			Params.bEnableJacobiSteps = false;
+			Params.NumJacobiSteps = 0;
+			Params.FarClipDistance = FarClipDistance;
 
 			ENQUEUE_RENDER_COMMAND(ApplyNPRTransform)(
 				[this, TempParams = MoveTemp(Params), InputResource = Input->GetResource(), OutputResource = RenderTarget->GetResource()]
@@ -31,8 +32,7 @@ UTexture* UCompositingStereolabsDepthRelaxationPass::ApplyTransform_Implementati
 				{
 					this->Parameters_RenderThread = TempParams;
 					this->ApplyTransform_RenderThread(RHICmdList, InputResource, OutputResource);
-				}
-				);
+				});
 
 			Result = RenderTarget;
 		}
@@ -42,21 +42,21 @@ UTexture* UCompositingStereolabsDepthRelaxationPass::ApplyTransform_Implementati
 }
 
 
-void UCompositingStereolabsDepthRelaxationPass::ApplyTransform_RenderThread(FRHICommandListImmediate& RHICmdList, FTextureResource* InputResource, FTextureResource* RenderTargetResource) const
+void UCompositingStereolabsDepthProcessingPass::ApplyTransform_RenderThread(FRHICommandListImmediate& RHICmdList, FTextureResource* InputResource, FTextureResource* RenderTargetResource) const
 {
 	check(IsInRenderingThread());
 
 	FRDGBuilder GraphBuilder(RHICmdList);
 
-	TRefCountPtr<IPooledRenderTarget> InputRT = CreateRenderTarget(InputResource->GetTextureRHI(), TEXT("StereolabsDepthRelaxationPass.Input"));
-	TRefCountPtr<IPooledRenderTarget> OutputRT = CreateRenderTarget(RenderTargetResource->GetTextureRHI(), TEXT("StereolabsDepthRelaxationPass.Output"));
+	TRefCountPtr<IPooledRenderTarget> InputRT = CreateRenderTarget(InputResource->GetTextureRHI(), TEXT("StereolabsDepthProcessingPass.Input"));
+	TRefCountPtr<IPooledRenderTarget> OutputRT = CreateRenderTarget(RenderTargetResource->GetTextureRHI(), TEXT("StereolabsDepthProcessingPass.Output"));
 
 	// Set up RDG resources
 	FRDGTextureRef InColorTexture = GraphBuilder.RegisterExternalTexture(InputRT);
 	FRDGTextureRef OutColorTexture = GraphBuilder.RegisterExternalTexture(OutputRT);
 
 	// Execute pipeline
-	StereolabsCompositing::ExecuteDepthRelaxationPipeline(
+	StereolabsCompositing::ExecuteDepthProcessingPipeline(
 		GraphBuilder,
 		Parameters_RenderThread,
 		InColorTexture,

@@ -9,16 +9,17 @@
 
 
 UCLASS(BlueprintType, Blueprintable)
-class STEREOLABSCOMPOSITING_API UCompositingStereolabsDepthRelaxationPass : public UCompositingElementTransform
+class STEREOLABSCOMPOSITING_API UCompositingStereolabsDepthProcessingPass : public UCompositingElementTransform
 {
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Compositing Pass", meta = (DisplayAfter="PassName", EditCondition="bEnabled"))
-	bool bEnableJacobi = true;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Compositing Pass", meta = (DisplayAfter = "PassName", EditCondition="bEnabled"))
-	int32 NumJacobiPasses = 16;
+	// Reconstruction Parameters
+
+	// Clipping Parameters
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Compositing Pass", meta = (DisplayAfter = "PassName", EditCondition = "bEnabled"))
+	float FarClipDistance = 200.0f; // 200cm
 
 public:
 	virtual UTexture* ApplyTransform_Implementation(UTexture* Input, UComposurePostProcessingPassProxy* PostProcessProxy, ACameraActor* TargetCamera) override;
@@ -29,5 +30,5 @@ private:
 
 private:
 	// Only access on render thread!
-	DepthRelaxationParameters Parameters_RenderThread;
+	FDepthProcessingParametersProxy Parameters_RenderThread;
 };

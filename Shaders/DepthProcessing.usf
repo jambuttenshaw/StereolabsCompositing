@@ -9,7 +9,7 @@ Texture2D InTex;
 SamplerState sampler0; // Bilinear sampler to perform interpolation
 
 
-// Ensures that the texture is set up correctly for use in the rest of the relaxation pipeline
+// Ensures that the texture is set up correctly for use in the rest of the pipeline
 float4 PreProcessDepthPS(
 	float2 InUV : TEXCOORD0
 ) : SV_Target0
@@ -78,6 +78,35 @@ float4 JacobiStepPS(
 		D *= 0.25f;
 		D.w = 0;
 	}
+
+	return D;
+}
+
+
+// All depth values beyond this distance will be clipped
+float FarClipDistance;
+
+
+float4 DepthClipPS(
+	float2 InUV : TEXCOORD0
+) : SV_Target0
+{
+	// Sample depth at location
+	float4 D = InTex.Sample(sampler0, InUV);
+
+	if (D.w > 0.0f)
+	{
+		// Depth is INVALID (depth reconstruction marks invalid areas with alpha=1)
+		// The rest of the pipeline expects invalid areas to be transparent
+		// Also set color channels to 0 for clarity, though they probably already are anyway
+		return 0.0f;
+	}
+
+	// Clip against user-defined clipping planes
+	D.w = D.x < FarClipDistance;
+
+	// Reset color channels to 0 where depth data is invalid for clarity
+	D *= D.w;
 
 	return D;
 }
