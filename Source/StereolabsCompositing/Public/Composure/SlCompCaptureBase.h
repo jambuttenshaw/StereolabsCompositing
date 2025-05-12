@@ -5,6 +5,8 @@
 #include "SlCompCaptureBase.generated.h"
 
 
+struct FVolumetricFogRequiredData;
+
 /**
  *	Base class for CG Compositing elements that will work with Stereolabs Cameras
  */
@@ -16,17 +18,18 @@ class STEREOLABSCOMPOSITING_API AStereolabsCompositingCaptureBase : public AComp
 public:
 	AStereolabsCompositingCaptureBase();
 
+
+	const FVolumetricFogRequiredData* GetVolumetricFogData() const { return VolumetricFogData_RenderThread.Get(); }
 protected:
+	FVolumetricFogRequiredData* GetVolumetricFogData() { return VolumetricFogData_RenderThread.Get(); }
+
 	// Rendering resources extracted from the scene renderer for use in composition
 	// This layer provides a place to keep these resources safe and reference them in later Composure passes,
 	// after the scene rendering has been completed
-
-	// For access on render thread only
-	TRefCountPtr<IPooledRenderTarget> CachedFroxelGrid;
+	TUniquePtr<FVolumetricFogRequiredData> VolumetricFogData_RenderThread;
 
 private:
 	TSharedPtr<class FSlCompViewExtension, ESPMode::ThreadSafe> SlCompViewExtension;
 
-public:
 	friend class FSlCompViewExtension;
 };

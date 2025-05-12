@@ -3,6 +3,8 @@
 #include "SceneViewExtension.h"
 #include "SlCompViewExtension.h"
 
+#include "Pipelines/StereolabsCompositingPipelines.h"
+
 
 AStereolabsCompositingCaptureBase::AStereolabsCompositingCaptureBase()
 {
@@ -11,5 +13,6 @@ AStereolabsCompositingCaptureBase::AStereolabsCompositingCaptureBase()
 	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
 		SlCompViewExtension = FSceneViewExtensions::NewExtension<FSlCompViewExtension>(this);
+		VolumetricFogData_RenderThread = MakeUnique<FVolumetricFogRequiredData>();
 	}
 }

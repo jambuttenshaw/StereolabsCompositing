@@ -40,3 +40,25 @@ private:
 	// Only access on render thread!
 	FDepthProcessingParametersProxy Parameters_RenderThread;
 };
+
+
+/**
+ * Composites volumetric fog from the scene onto the camera image, using the real-world depth
+ */
+UCLASS(BlueprintType, Blueprintable)
+class STEREOLABSCOMPOSITING_API UCompositingStereolabsVolumetricsPass : public UCompositingElementTransform
+{		
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Compositing Pass", meta = (DisplayAfter = "PassName", EditCondition = "bEnabled"))
+	FName DepthPassName;
+
+	/** Used to get resources from the scene renderer that are required for composing volumetric effects */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Compositing Pass", meta = (DisplayAfter = "PassName", EditCondition = "bEnabled"))
+	TWeakObjectPtr<class AStereolabsCompositingCaptureBase> StereolabsCGLayer;
+
+public:
+	virtual UTexture* ApplyTransform_Implementation(UTexture* Input, UComposurePostProcessingPassProxy* PostProcessProxy, ACameraActor* TargetCamera) override;
+
+};

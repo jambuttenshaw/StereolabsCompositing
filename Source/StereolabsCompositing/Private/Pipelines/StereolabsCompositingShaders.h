@@ -91,3 +91,25 @@ class FDepthClippingPS : public FGlobalShader
 		RENDER_TARGET_BINDING_SLOTS()
 	END_SHADER_PARAMETER_STRUCT()
 };
+
+
+
+class FVolumetricCompositionPS : public FGlobalShader
+{
+	DECLARE_GLOBAL_SHADER(FVolumetricCompositionPS)
+	SHADER_USE_PARAMETER_STRUCT(FVolumetricCompositionPS, FGlobalShader)
+
+	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
+		SHADER_PARAMETER_STRUCT(FScreenPassTextureViewportParameters, OutViewPort)
+		SHADER_PARAMETER_STRUCT(FScreenPassTextureViewportParameters, InViewPort)
+		SHADER_PARAMETER_SAMPLER(SamplerState, sampler0)
+
+		SHADER_PARAMETER_RDG_TEXTURE_SRV(Texture2D<float4>, CameraColorTexture)
+		SHADER_PARAMETER_TEXTURE(Texture2D<float4>, CameraDepthTexture)
+
+		SHADER_PARAMETER_RDG_TEXTURE_SRV(Texture3D, IntegratedLightScattering)
+		SHADER_PARAMETER_SAMPLER(SamplerState, IntegratedLightScatteringSampler)
+
+		RENDER_TARGET_BINDING_SLOTS()
+	END_SHADER_PARAMETER_STRUCT()
+};

@@ -10,3 +10,6 @@ IMPLEMENT_GLOBAL_SHADER(FInterpolatePS, "/Plugin/StereolabsCompositing/DepthProc
 IMPLEMENT_GLOBAL_SHADER(FJacobiStepPS, "/Plugin/StereolabsCompositing/DepthProcessing.usf", "JacobiStepPS", SF_Pixel);
 
 IMPLEMENT_GLOBAL_SHADER(FDepthClippingPS, "/Plugin/StereolabsCompositing/DepthProcessing.usf", "DepthClipPS", SF_Pixel);
+
+
+IMPLEMENT_GLOBAL_SHADER(FVolumetricCompositionPS, "/Plugin/StereolabsCompositing/VolumetricComposition.usf", "VolumetricCompositionPS", SF_Pixel);

@@ -4,6 +4,7 @@
 #include "StereolabsCompositingShaders.h"
 
 DECLARE_GPU_STAT_NAMED(SlCompDepthProcessingStat, TEXT("SlCompDepthProcessing"));
+DECLARE_GPU_STAT_NAMED(SlCompVolumetricCompositionStat, TEXT("SlCompVolumetricComposition"));
 
 
 namespace StereolabsCompositing{
@@ -71,7 +72,7 @@ void StereolabsCompositing::ExecuteDepthProcessingPipeline(
 
 	RDG_EVENT_SCOPE_STAT(GraphBuilder, SlCompDepthProcessingStat, "SlCompDepthProcessing");
 	RDG_GPU_STAT_SCOPE(GraphBuilder, SlCompDepthProcessingStat);
-	SCOPED_NAMED_EVENT(SlDepthCompositing, FColor::Purple);
+	SCOPED_NAMED_EVENT(SlCompDepthProcessing, FColor::Purple);
 
 	FRDGTextureRef TempTexture1 = CreateTextureFrom(GraphBuilder, OutTexture, TEXT("StereolabsCompositingDepthProcessing.Temp1"));
 	FRDGTextureRef TempTexture2 = CreateTextureFrom(GraphBuilder, OutTexture, TEXT("StereolabsCompositingDepthProcessing.Temp2"));
@@ -124,6 +125,37 @@ void StereolabsCompositing::ExecuteDepthProcessingPipeline(
 			PassParameters->FarClipDistance = Parameters.FarClipDistance;
 
 			PassParameters->InTex = GraphBuilder.CreateSRV(TempTexture1);
+		}
+	);
+}
+
+
+void StereolabsCompositing::ExecuteVolumetricsCompositionPipeline(
+	FRDGBuilder& GraphBuilder, 
+	const FVolumetricsCompositionParametersProxy& Parameters, 
+	FRDGTextureRef InTexture, 
+	FRDGTextureRef OutTexture
+)
+{
+	check(IsInRenderingThread());
+
+	RDG_EVENT_SCOPE_STAT(GraphBuilder, SlCompVolumetricCompositionStat, "SlCompVolumetricComposition");
+	RDG_GPU_STAT_SCOPE(GraphBuilder, SlCompVolumetricCompositionStat);
+	SCOPED_NAMED_EVENT(SlCompVolumetricCompositionStat, FColor::Purple);
+
+	FRDGTextureRef IntegratedLightScatteringTexture = GraphBuilder.RegisterExternalTexture(Parameters.VolumetricFogData->IntegratedLightScatteringTexture);
+
+	StereolabsCompositing::AddPass<FVolumetricCompositionPS, TStaticSamplerState<SF_Bilinear>>(
+		GraphBuilder,
+		RDG_EVENT_NAME("SlCompVolumetricComposition"),
+		OutTexture,
+		[&](auto PassParameters)
+		{
+			PassParameters->CameraColorTexture = GraphBuilder.CreateSRV(InTexture);
+			PassParameters->CameraDepthTexture = Parameters.CameraDepthTexture->GetResource()->TextureRHI;
+
+			PassParameters->IntegratedLightScattering = GraphBuilder.CreateSRV(IntegratedLightScatteringTexture);
+			PassParameters->IntegratedLightScatteringSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
 		}
 	);
 }

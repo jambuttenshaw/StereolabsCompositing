@@ -17,6 +17,29 @@ struct FDepthProcessingParametersProxy
 	float FarClipDistance;
 };
 
+
+// Resources and parameters extracted from the scene render graph to be able to apply volumetric fog in composure
+struct FVolumetricFogRequiredData
+{
+	// Resources
+	TRefCountPtr<IPooledRenderTarget> IntegratedLightScatteringTexture;
+
+	// Associated parameters
+	float VolumetricFogStartDistance;
+	FVector3f VolumetricFogGridZParams;
+	FVector2f VolumetricFogSVPosToVolumeUV;
+	FVector2f VolumetricFogUVMax;
+	float OneOverPreExposure;
+};
+
+struct FVolumetricsCompositionParametersProxy
+{
+	UTexture* CameraDepthTexture;
+
+	const FVolumetricFogRequiredData* VolumetricFogData;
+};
+
+
 namespace StereolabsCompositing
 {
 	void ExecuteDepthProcessingPipeline(
@@ -24,5 +47,12 @@ namespace StereolabsCompositing
 		const FDepthProcessingParametersProxy& Parameters,
 		FRDGTextureRef InTexture,				
 		FRDGTextureRef OutTexture				
+	);
+
+	void ExecuteVolumetricsCompositionPipeline(
+		FRDGBuilder& GraphBuilder,
+		const FVolumetricsCompositionParametersProxy& Parameters,
+		FRDGTextureRef InTexture,
+		FRDGTextureRef OutTexture
 	);
 }

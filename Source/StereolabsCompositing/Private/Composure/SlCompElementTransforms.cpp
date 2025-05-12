@@ -1,9 +1,15 @@
 #include "Composure/SlCompElementTransforms.h"
 
-
 #include "RenderGraphBuilder.h"
-#include "SlCompEngineSubsystem.h"
+#include "CompositingElements/ICompositingTextureLookupTable.h"
 
+#include "SlCompEngineSubsystem.h"
+#include "Composure/SlCompCaptureBase.h"
+
+
+///////////////////////////////////////////////
+// UCompositingStereolabsDepthProcessingPass //
+///////////////////////////////////////////////
 
 UTexture* UCompositingStereolabsDepthProcessingPass::ApplyTransform_Implementation(UTexture* Input, UComposurePostProcessingPassProxy* PostProcessProxy, ACameraActor* TargetCamera)
 {
@@ -82,4 +88,67 @@ void UCompositingStereolabsDepthProcessingPass::ApplyTransform_RenderThread(
 	);
 
 	GraphBuilder.Execute();
+}
+
+
+///////////////////////////////////////////
+// UCompositingStereolabsVolumetricsPass //
+///////////////////////////////////////////
+
+
+UTexture* UCompositingStereolabsVolumetricsPass::ApplyTransform_Implementation(UTexture* Input, UComposurePostProcessingPassProxy* PostProcessProxy, ACameraActor* TargetCamera)
+{
+	UTexture* Result = Input;
+
+	if (!Input || !StereolabsCGLayer.IsValid())
+		return Result;
+
+	// Validate input colour texture
+	check(Input->GetResource());
+
+	FIntPoint Dims;
+	Dims.X = Input->GetResource()->GetSizeX();
+	Dims.Y = Input->GetResource()->GetSizeY();
+
+	// Get a render target to output to
+	UTextureRenderTarget2D* RenderTarget = RequestRenderTarget(Dims, PF_FloatRGBA);
+	if (!(RenderTarget && RenderTarget->GetResource()))
+		return Result;
+	Result = RenderTarget;
+
+	FVolumetricsCompositionParametersProxy Params;
+	Params.VolumetricFogData = static_cast<const AStereolabsCompositingCaptureBase*>(StereolabsCGLayer.Get())->GetVolumetricFogData();
+	if (!Params.VolumetricFogData || !Params.VolumetricFogData->IntegratedLightScatteringTexture)
+		return Result;
+
+	// Get the output of the depth pass
+	bool bSuccess = PrePassLookupTable->FindNamedPassResult(DepthPassName, Params.CameraDepthTexture);
+	if (!bSuccess || !Params.CameraDepthTexture)
+		return Result;
+
+	ENQUEUE_RENDER_COMMAND(ApplyNPRTransform)(
+		[this, Parameters = MoveTemp(Params), InputResource = Input->GetResource(), OutputResource = RenderTarget->GetResource()]
+		(FRHICommandListImmediate& RHICmdList)
+		{
+			FRDGBuilder GraphBuilder(RHICmdList);
+
+			TRefCountPtr<IPooledRenderTarget> InputRT = CreateRenderTarget(InputResource->GetTextureRHI(), TEXT("StereolabsVolumetricsPass.Input"));
+			TRefCountPtr<IPooledRenderTarget> OutputRT = CreateRenderTarget(OutputResource->GetTextureRHI(), TEXT("StereolabsVolumetricsPass.Output"));
+
+			// Set up RDG resources
+			FRDGTextureRef InColorTexture = GraphBuilder.RegisterExternalTexture(InputRT);
+			FRDGTextureRef OutColorTexture = GraphBuilder.RegisterExternalTexture(OutputRT);
+
+			// Execute pipeline
+			StereolabsCompositing::ExecuteVolumetricsCompositionPipeline(
+				GraphBuilder,
+				Parameters,
+				InColorTexture,
+				OutColorTexture
+			);
+
+			GraphBuilder.Execute();
+		});
+
+	return Result;
 }

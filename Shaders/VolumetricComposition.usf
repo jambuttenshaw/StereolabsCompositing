@@ -1,0 +1,25 @@
+#include "/Engine/Private/Common.ush"
+#include "/Engine/Private/ScreenPass.ush"
+
+SCREEN_PASS_TEXTURE_VIEWPORT(OutViewPort)
+SCREEN_PASS_TEXTURE_VIEWPORT(InViewPort)
+
+Texture2D<float4> CameraColorTexture;
+Texture2D<float4> CameraDepthTexture;
+SamplerState sampler0;
+
+Texture3D IntegratedLightScattering;
+SamplerState IntegratedLightScatteringSampler;
+
+
+float4 VolumetricCompositionPS(
+	float2 InUV : TEXCOORD0
+) : SV_Target0
+{
+	float4 Color = CameraColorTexture.Sample(sampler0, InUV);
+	float Depth = CameraDepthTexture.Sample(sampler0, InUV);
+
+	// Calculate fog color
+
+	return Color;
+}
