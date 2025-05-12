@@ -16,10 +16,18 @@ class STEREOLABSCOMPOSITING_API UCompositingStereolabsDepthProcessingPass : publ
 public:
 
 	// Reconstruction Parameters
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Compositing Pass", meta = (DisplayAfter = "PassName", EditCondition = "bEnabled"))
+	bool bEnableJacobi = false;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Compositing Pass", meta = (DisplayAfter = "PassName", EditCondition = "bEnabled"))
+	int32 NumJacobiSteps = 10.0f;
 
 	// Clipping Parameters
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Compositing Pass", meta = (DisplayAfter = "PassName", EditCondition = "bEnabled"))
 	float FarClipDistance = 200.0f; // 200cm
+
+	// Height of camera above floor
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Compositing Pass", meta = (DisplayAfter = "PassName", EditCondition = "bEnabled"))
+	float FloorClipDistance = 100.0f; // 100cm
 
 public:
 	virtual UTexture* ApplyTransform_Implementation(UTexture* Input, UComposurePostProcessingPassProxy* PostProcessProxy, ACameraActor* TargetCamera) override;

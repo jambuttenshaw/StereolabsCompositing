@@ -39,18 +39,6 @@ protected:
 	void OnCameraClosed();
 
 public:
-	// Textures with camera data:
-
-	UPROPERTY(BlueprintReadOnly, Category = "Stereolabs|Textures")
-	USlTexture* ColorTexture;
-
-	/** Left eye depth texture  */
-	UPROPERTY(BlueprintReadOnly, Category = "Stereolabs|Textures")
-	USlTexture* DepthTexture;
-
-	/** Left eye depth texture  */
-	UPROPERTY(BlueprintReadOnly, Category = "Stereolabs|Textures")
-	USlTexture* NormalTexture;
 
 	UFUNCTION(BlueprintCallable)
 	UTexture2D* GetColorTexture();
@@ -61,10 +49,26 @@ public:
 	UFUNCTION(BlueprintCallable)
 	UTexture2D* GetNormalTexture();
 
+	UFUNCTION(BlueprintCallable)
+	const FMatrix& GetProjectionMatrix();
+	UFUNCTION(BlueprintCallable)
+	const FMatrix& GetInvProjectionMatrix();
+
 private:
 	/** Current batch */
 	UPROPERTY()
-	class USlGPUTextureBatch* Batch;
+	class USlGPUTextureBatch* Batch = nullptr;
+
+	// Textures with camera data:
+	UPROPERTY()
+	USlTexture* ColorTexture = nullptr;
+	UPROPERTY()
+	USlTexture* DepthTexture = nullptr;
+	UPROPERTY()
+	USlTexture* NormalTexture = nullptr;
 
 	bool bCanEverTick = false;
+
+	FMatrix CameraProjectionMatrix;
+	FMatrix InvCameraProjectionMatrix;
 };

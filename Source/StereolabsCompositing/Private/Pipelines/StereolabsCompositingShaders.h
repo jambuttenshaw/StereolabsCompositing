@@ -82,6 +82,8 @@ class FDepthClippingPS : public FGlobalShader
 		SHADER_PARAMETER_STRUCT(FScreenPassTextureViewportParameters, InViewPort)
 		SHADER_PARAMETER_SAMPLER(SamplerState, sampler0)
 
+		SHADER_PARAMETER(FMatrix44f, InvCameraProjectionMatrix)
+		SHADER_PARAMETER(FVector4f, UserClippingPlane)
 		SHADER_PARAMETER(float, FarClipDistance)
 
 		SHADER_PARAMETER_RDG_TEXTURE_SRV(Texture2D<float4>, InTex)

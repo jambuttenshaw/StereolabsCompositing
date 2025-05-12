@@ -2,6 +2,7 @@
 
 
 #include "RenderGraphBuilder.h"
+#include "StereolabsCompositingEngineSubsystem.h"
 
 
 UTexture* UCompositingStereolabsDepthProcessingPass::ApplyTransform_Implementation(UTexture* Input, UComposurePostProcessingPassProxy* PostProcessProxy, ACameraActor* TargetCamera)
@@ -22,8 +23,22 @@ UTexture* UCompositingStereolabsDepthProcessingPass::ApplyTransform_Implementati
 		if (RenderTarget && RenderTarget->GetResource())
 		{
 			FDepthProcessingParametersProxy Params;
-			Params.bEnableJacobiSteps = false;
-			Params.NumJacobiSteps = 0;
+
+			auto Subsystem = GEngine->GetEngineSubsystem<UStereolabsCompositingEngineSubsystem>();
+			Params.InvProjectionMatrix = FMatrix44f(Subsystem->GetInvProjectionMatrix());
+
+			Params.bEnableJacobiSteps = bEnableJacobi;
+			Params.NumJacobiSteps = NumJacobiSteps;
+
+			// Construct user clipping plane
+			// THESE DIRECTIONS / POSITIONS USE Y AXIS AS UP/DOWN AND Z AXIS AS FRONT/BACK
+			FPlane ClippingPlane{ FVector{ 0.0f, -FloorClipDistance, 0.0f }, FVector{ 0.0f, 1.0f, 0.0f } };
+			Params.UserClippingPlane = FVector4f{
+				static_cast<float>(ClippingPlane.X),
+				static_cast<float>(ClippingPlane.Y),
+				static_cast<float>(ClippingPlane.Z),
+				static_cast<float>(ClippingPlane.W)
+			};
 			Params.FarClipDistance = FarClipDistance;
 
 			ENQUEUE_RENDER_COMMAND(ApplyNPRTransform)(
@@ -42,7 +57,10 @@ UTexture* UCompositingStereolabsDepthProcessingPass::ApplyTransform_Implementati
 }
 
 
-void UCompositingStereolabsDepthProcessingPass::ApplyTransform_RenderThread(FRHICommandListImmediate& RHICmdList, FTextureResource* InputResource, FTextureResource* RenderTargetResource) const
+void UCompositingStereolabsDepthProcessingPass::ApplyTransform_RenderThread(
+	FRHICommandListImmediate& RHICmdList,
+	FTextureResource* InputResource,
+	FTextureResource* RenderTargetResource) const
 {
 	check(IsInRenderingThread());
 

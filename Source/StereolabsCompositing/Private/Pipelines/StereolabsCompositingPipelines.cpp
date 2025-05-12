@@ -3,6 +3,8 @@
 #include "ScreenPass.h"
 #include "StereolabsCompositingShaders.h"
 
+DECLARE_GPU_STAT_NAMED(SlCompDepthProcessingStat, TEXT("SlCompDepthProcessing"));
+
 
 namespace StereolabsCompositing{
 template <typename Shader, typename SamplerState = TStaticSamplerState<SF_Bilinear>>
@@ -67,46 +69,48 @@ void StereolabsCompositing::ExecuteDepthProcessingPipeline(
 {
 	check(IsInRenderingThread());
 
-	FRDGTextureRef TempTexture = CreateTextureFrom(GraphBuilder, OutTexture, TEXT("StereolabsCompositingDepthProcessing.Temp"));
+	RDG_EVENT_SCOPE_STAT(GraphBuilder, SlCompDepthProcessingStat, "SlCompDepthProcessing");
+	RDG_GPU_STAT_SCOPE(GraphBuilder, SlCompDepthProcessingStat);
+	SCOPED_NAMED_EVENT(SlDepthCompositing, FColor::Purple);
+
+	FRDGTextureRef TempTexture1 = CreateTextureFrom(GraphBuilder, OutTexture, TEXT("StereolabsCompositingDepthProcessing.Temp1"));
+	FRDGTextureRef TempTexture2 = CreateTextureFrom(GraphBuilder, OutTexture, TEXT("StereolabsCompositingDepthProcessing.Temp2"));
 
 	StereolabsCompositing::AddPass<FPreProcessDepthPS>(
 		GraphBuilder,
 		RDG_EVENT_NAME("PreProcessDepth"),
-		TempTexture,
+		TempTexture1,
 		[&](auto PassParameters)
 		{
 			PassParameters->InTex = GraphBuilder.CreateSRV(InTexture);
 		}
 	);
 
-	/*
 	if (Parameters.bEnableJacobiSteps)
 	{
-
 		for (uint32 i = 0; i < Parameters.NumJacobiSteps; i++)
 		{
-			StereolabsCompositing::AddPass<FJacobiStepPS>(
+			StereolabsCompositing::AddPass<FJacobiStepPS, TStaticSamplerState<>>(
 				GraphBuilder,
 				RDG_EVENT_NAME("JacobiStep(i=%d)", 2*i),
-				PingTexture,
+				TempTexture2,
 				[&](auto PassParameters)
 				{
-					PassParameters->InTex = GraphBuilder.CreateSRV(OutTexture);
+					PassParameters->InTex = GraphBuilder.CreateSRV(TempTexture1);
 				}
 			);
 
-			StereolabsCompositing::AddPass<FJacobiStepPS>(
+			StereolabsCompositing::AddPass<FJacobiStepPS, TStaticSamplerState<>>(
 				GraphBuilder,
 				RDG_EVENT_NAME("JacobiStep(i=%d)", 2*i+1),
-				OutTexture,
+				TempTexture1,
 				[&](auto PassParameters)
 				{
-					PassParameters->InTex = GraphBuilder.CreateSRV(PingTexture);
+					PassParameters->InTex = GraphBuilder.CreateSRV(TempTexture2);
 				}
 			);
 		}
 	}
-	*/
 
 	// Post Processing
 	StereolabsCompositing::AddPass<FDepthClippingPS>(
@@ -115,8 +119,11 @@ void StereolabsCompositing::ExecuteDepthProcessingPipeline(
 		OutTexture,
 		[&](auto PassParameters)
 		{
+			PassParameters->InvCameraProjectionMatrix = Parameters.InvProjectionMatrix;
+			PassParameters->UserClippingPlane = Parameters.UserClippingPlane;
 			PassParameters->FarClipDistance = Parameters.FarClipDistance;
-			PassParameters->InTex = GraphBuilder.CreateSRV(TempTexture);
+
+			PassParameters->InTex = GraphBuilder.CreateSRV(TempTexture1);
 		}
 	);
 }

@@ -88,7 +88,8 @@ void UStereolabsCompositingEngineSubsystem::OnCameraOpened()
 	// Create textures and texture batch
 	Batch = USlGPUTextureBatch::CreateGPUTextureBatch(FName("CameraBatch"));
 
-	FIntPoint Resolution = GSlCameraProxy->CameraInformation.CalibrationParameters.LeftCameraParameters.Resolution;
+	FSlCameraParameters CameraParameters = GSlCameraProxy->CameraInformation.CalibrationParameters.LeftCameraParameters;
+	FIntPoint Resolution = CameraParameters.Resolution;
 
 	ColorTexture = USlViewTexture::CreateGPUViewTexture(
 		"ColorTexture", Resolution.X, Resolution.Y, ESlView::V_Left, true, ESlTextureFormat::TF_R8G8B8A8_SNORM
@@ -104,11 +105,19 @@ void UStereolabsCompositingEngineSubsystem::OnCameraOpened()
 		"NormalTexture", Resolution.X, Resolution.Y, ESlMeasure::M_Normals, true, ESlTextureFormat::TF_A32B32G32R32F
 	);
 	Batch->AddTexture(NormalTexture);
+
+	// Calculate a projection matrix based off of the camera properties
+	// Setting min == max will project far plane to infinity
+	// In practice camera cannot calculate depth at distances <~30cm, so setting near plane to any value below this is adequate
+	const float HalfFovX = 0.5f * FMath::DegreesToRadians(CameraParameters.HFOV);
+	const float HalfFovY = 0.5f * FMath::DegreesToRadians(CameraParameters.VFOV);
+	CameraProjectionMatrix = FReversedZPerspectiveMatrix(HalfFovX, HalfFovY, 1.0f, 1.0f, 10.0f, 10.0f);
+	InvCameraProjectionMatrix = CameraProjectionMatrix.Inverse();
 }
 
 void UStereolabsCompositingEngineSubsystem::OnCameraClosed()
 {
-	// Do not explicitly release Batch and Textures here - this causes double-free somehow
+	// Do not explicitly release Batch and Textures here - this causes double-free
 }
 
 
@@ -125,4 +134,14 @@ UTexture2D* UStereolabsCompositingEngineSubsystem::GetDepthTexture()
 UTexture2D* UStereolabsCompositingEngineSubsystem::GetNormalTexture()
 {
 	return NormalTexture ? NormalTexture->Texture : nullptr;
+}
+
+const FMatrix& UStereolabsCompositingEngineSubsystem::GetProjectionMatrix()
+{
+	return CameraProjectionMatrix;
+}
+
+const FMatrix& UStereolabsCompositingEngineSubsystem::GetInvProjectionMatrix()
+{
+	return InvCameraProjectionMatrix;
 }
