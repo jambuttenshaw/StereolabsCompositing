@@ -1,8 +1,8 @@
-#include "StereolabsCompositingElementTransforms.h"
+#include "Composure/SlCompElementTransforms.h"
 
 
 #include "RenderGraphBuilder.h"
-#include "StereolabsCompositingEngineSubsystem.h"
+#include "SlCompEngineSubsystem.h"
 
 
 UTexture* UCompositingStereolabsDepthProcessingPass::ApplyTransform_Implementation(UTexture* Input, UComposurePostProcessingPassProxy* PostProcessProxy, ACameraActor* TargetCamera)
@@ -24,7 +24,7 @@ UTexture* UCompositingStereolabsDepthProcessingPass::ApplyTransform_Implementati
 		{
 			FDepthProcessingParametersProxy Params;
 
-			auto Subsystem = GEngine->GetEngineSubsystem<UStereolabsCompositingEngineSubsystem>();
+			auto Subsystem = GEngine->GetEngineSubsystem<USlCompEngineSubsystem>();
 			Params.InvProjectionMatrix = FMatrix44f(Subsystem->GetInvProjectionMatrix());
 
 			Params.bEnableJacobiSteps = bEnableJacobi;

@@ -3,11 +3,11 @@
 #include "CoreMinimal.h"
 #include "Composure/Classes/CompositingElements/CompositingElementPasses.h"
 
-#include "StereolabsCompositingElementInput.generated.h"
+#include "SlCompElementInput.generated.h"
 
 
 UENUM(BlueprintType)
-enum class EStereolabsCompositingInputChannel : uint8
+enum class ESlCompInputChannel : uint8
 {
 	Color,
 	Depth,
@@ -16,14 +16,14 @@ enum class EStereolabsCompositingInputChannel : uint8
 
 
 UCLASS(BlueprintType, Blueprintable)
-class STEREOLABSCOMPOSITING_API UStereolabsCompositingInput : public UCompositingElementInput
+class STEREOLABSCOMPOSITING_API USlCompInput : public UCompositingElementInput
 {
 	GENERATED_BODY()
 public:
-	UStereolabsCompositingInput();
+	USlCompInput();
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Compositing Pass", meta=(EditCondition="bEnabled"))
-	EStereolabsCompositingInputChannel InputSource = EStereolabsCompositingInputChannel::Color;
+	ESlCompInputChannel InputSource = ESlCompInputChannel::Color;
 
 protected:
 	//~ Begin UCompositingElementInput interface	

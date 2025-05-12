@@ -30,5 +30,15 @@ public class StereolabsCompositing : ModuleRules
                 "RHICore"
             }
         );
+
+        // Require private access to renderer for using volumetric fog
+        string EnginePath = Path.GetFullPath(Target.RelativeEnginePath);
+
+        PrivateIncludePaths.AddRange(
+	        new string[]
+	        {
+		        EnginePath + "Source/Runtime/Renderer/Private/",
+	        }
+        );
     }
 }

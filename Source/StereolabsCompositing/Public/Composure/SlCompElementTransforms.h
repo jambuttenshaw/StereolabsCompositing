@@ -5,7 +5,7 @@
 #include "CompositingElements/CompositingElementPasses.h"
 #include "Pipelines/StereolabsCompositingPipelines.h"
 
-#include "StereolabsCompositingElementTransforms.generated.h"
+#include "SlCompElementTransforms.generated.h"
 
 
 UCLASS(BlueprintType, Blueprintable)

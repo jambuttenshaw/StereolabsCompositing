@@ -7,13 +7,13 @@
 #include "Subsystems/EngineSubsystem.h"
 #include "Core/StereolabsCameraProxy.h"
 
-#include "StereolabsCompositingEngineSubsystem.generated.h"
+#include "SlCompEngineSubsystem.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class STEREOLABSCOMPOSITING_API UStereolabsCompositingEngineSubsystem : public UEngineSubsystem, public FTickableGameObject
+class STEREOLABSCOMPOSITING_API USlCompEngineSubsystem : public UEngineSubsystem, public FTickableGameObject
 {
 	GENERATED_BODY()
 

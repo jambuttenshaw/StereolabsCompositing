@@ -1,7 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-#include "StereolabsCompositingEngineSubsystem.h"
+#include "SlCompEngineSubsystem.h"
 
+#include "SceneViewExtension.h"
+#include "SlCompViewExtension.h"
 #include "StereolabsCompositing.h"
 
 #include "Core/StereolabsCoreGlobals.h"
@@ -10,7 +12,7 @@
 #include "Core/StereolabsTextureBatch.h"
 
 
-void UStereolabsCompositingEngineSubsystem::Initialize(FSubsystemCollectionBase& Collection)
+void USlCompEngineSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	bCanEverTick = true;
 
@@ -19,8 +21,8 @@ void UStereolabsCompositingEngineSubsystem::Initialize(FSubsystemCollectionBase&
 	if (GSlCameraProxy)
 	{
 		// Hook delegates
-		GSlCameraProxy->OnCameraOpened.AddDynamic(this, &UStereolabsCompositingEngineSubsystem::OnCameraOpened);
-		GSlCameraProxy->OnCameraClosed.AddDynamic(this, &UStereolabsCompositingEngineSubsystem::OnCameraClosed);
+		GSlCameraProxy->OnCameraOpened.AddDynamic(this, &USlCompEngineSubsystem::OnCameraOpened);
+		GSlCameraProxy->OnCameraClosed.AddDynamic(this, &USlCompEngineSubsystem::OnCameraClosed);
 
 		if(!GSlCameraProxy->IsCameraOpened())
 		{
@@ -45,7 +47,7 @@ void UStereolabsCompositingEngineSubsystem::Initialize(FSubsystemCollectionBase&
 	}
 };
 
-void UStereolabsCompositingEngineSubsystem::Deinitialize()
+void USlCompEngineSubsystem::Deinitialize()
 {
 	if (GSlCameraProxy->IsCameraOpened())
 	{
@@ -56,7 +58,7 @@ void UStereolabsCompositingEngineSubsystem::Deinitialize()
 }
 
 
-void UStereolabsCompositingEngineSubsystem::Tick(float DeltaTime)
+void USlCompEngineSubsystem::Tick(float DeltaTime)
 {
 	if (!GSlCameraProxy->IsCameraOpened())
 	{
@@ -72,18 +74,18 @@ void UStereolabsCompositingEngineSubsystem::Tick(float DeltaTime)
 	bool bNewImage = Batch->Tick();
 }
 
-bool UStereolabsCompositingEngineSubsystem::IsTickable() const
+bool USlCompEngineSubsystem::IsTickable() const
 {
 	return bCanEverTick && GSlCameraProxy->IsCameraOpened();
 }
 
-TStatId UStereolabsCompositingEngineSubsystem::GetStatId() const
+TStatId USlCompEngineSubsystem::GetStatId() const
 {
-	RETURN_QUICK_DECLARE_CYCLE_STAT(UStereolabsCompositingEngineSubsystem, STATGROUP_Tickables);
+	RETURN_QUICK_DECLARE_CYCLE_STAT(USlCompEngineSubsystem, STATGROUP_Tickables);
 }
 
 
-void UStereolabsCompositingEngineSubsystem::OnCameraOpened()
+void USlCompEngineSubsystem::OnCameraOpened()
 {
 	// Create textures and texture batch
 	Batch = USlGPUTextureBatch::CreateGPUTextureBatch(FName("CameraBatch"));
@@ -115,33 +117,33 @@ void UStereolabsCompositingEngineSubsystem::OnCameraOpened()
 	InvCameraProjectionMatrix = CameraProjectionMatrix.Inverse();
 }
 
-void UStereolabsCompositingEngineSubsystem::OnCameraClosed()
+void USlCompEngineSubsystem::OnCameraClosed()
 {
 	// Do not explicitly release Batch and Textures here - this causes double-free
 }
 
 
-UTexture2D* UStereolabsCompositingEngineSubsystem::GetColorTexture()
+UTexture2D* USlCompEngineSubsystem::GetColorTexture()
 {
 	return ColorTexture ? ColorTexture->Texture : nullptr;
 }
 
-UTexture2D* UStereolabsCompositingEngineSubsystem::GetDepthTexture()
+UTexture2D* USlCompEngineSubsystem::GetDepthTexture()
 {
 	return DepthTexture ? DepthTexture->Texture : nullptr;
 }
 
-UTexture2D* UStereolabsCompositingEngineSubsystem::GetNormalTexture()
+UTexture2D* USlCompEngineSubsystem::GetNormalTexture()
 {
 	return NormalTexture ? NormalTexture->Texture : nullptr;
 }
 
-const FMatrix& UStereolabsCompositingEngineSubsystem::GetProjectionMatrix()
+const FMatrix& USlCompEngineSubsystem::GetProjectionMatrix()
 {
 	return CameraProjectionMatrix;
 }
 
-const FMatrix& UStereolabsCompositingEngineSubsystem::GetInvProjectionMatrix()
+const FMatrix& USlCompEngineSubsystem::GetInvProjectionMatrix()
 {
 	return InvCameraProjectionMatrix;
 }
