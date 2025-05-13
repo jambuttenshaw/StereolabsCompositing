@@ -59,6 +59,29 @@ struct FVolumetricsCompositionParametersProxy
 };
 
 
+struct FRelightingParametersProxy
+{
+	UTexture* CameraDepthTexture;
+	UTexture* CameraNormalTexture;
+
+	FLightSceneProxy* LightProxy;
+
+	FTransform CameraTransform;
+
+	float VirtualLightWeight;
+	float RealLightWeight;
+
+	bool IsValid() const
+	{
+		bool bValid = true;
+		bValid &= CameraDepthTexture != nullptr;
+		bValid &= CameraNormalTexture != nullptr;
+		bValid &= LightProxy != nullptr;
+		return bValid;
+	}
+};
+
+
 namespace StereolabsCompositing
 {
 	void ExecuteDepthProcessingPipeline(
@@ -71,6 +94,13 @@ namespace StereolabsCompositing
 	void ExecuteVolumetricsCompositionPipeline(
 		FRDGBuilder& GraphBuilder,
 		const FVolumetricsCompositionParametersProxy& Parameters,
+		FRDGTextureRef InTexture,
+		FRDGTextureRef OutTexture
+	);
+
+	void ExecuteRelightingPipeline(
+		FRDGBuilder& GraphBuilder,
+		const FRelightingParametersProxy& Parameters,
 		FRDGTextureRef InTexture,
 		FRDGTextureRef OutTexture
 	);

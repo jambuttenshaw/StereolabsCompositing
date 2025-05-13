@@ -107,7 +107,7 @@ class FVolumetricCompositionPS : public FGlobalShader
 		SHADER_PARAMETER_SAMPLER(SamplerState, sampler0)
 
 		SHADER_PARAMETER_RDG_TEXTURE_SRV(Texture2D<float4>, CameraColorTexture)
-		SHADER_PARAMETER_TEXTURE(Texture2D<float4>, CameraDepthTexture)
+		SHADER_PARAMETER_TEXTURE(Texture2D<float4>, CameraDepthTexture) // Not RDG resource
 
 		SHADER_PARAMETER_RDG_TEXTURE_SRV(Texture3D, IntegratedLightScattering)
 		SHADER_PARAMETER_SAMPLER(SamplerState, IntegratedLightScatteringSampler)
@@ -118,6 +118,35 @@ class FVolumetricCompositionPS : public FGlobalShader
 		SHADER_PARAMETER(FVector2f, VolumetricFogSVPosToVolumeUV)
 		SHADER_PARAMETER(FVector2f, VolumetricFogUVMax)
 		SHADER_PARAMETER(float, OneOverPreExposure)
+
+		RENDER_TARGET_BINDING_SLOTS()
+	END_SHADER_PARAMETER_STRUCT()
+};
+
+
+
+class FRelightingPS : public FGlobalShader
+{
+	DECLARE_GLOBAL_SHADER(FRelightingPS)
+	SHADER_USE_PARAMETER_STRUCT(FRelightingPS, FGlobalShader)
+
+	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
+		SHADER_PARAMETER_STRUCT(FScreenPassTextureViewportParameters, OutViewPort)
+		SHADER_PARAMETER_STRUCT(FScreenPassTextureViewportParameters, InViewPort)
+		SHADER_PARAMETER_SAMPLER(SamplerState, sampler0)
+
+		SHADER_PARAMETER_RDG_TEXTURE_SRV(Texture2D<float4>, CameraColorTexture)
+		SHADER_PARAMETER_TEXTURE(Texture2D<float4>, CameraDepthTexture) // Not RDG resource
+		SHADER_PARAMETER_TEXTURE(Texture2D<float4>, CameraNormalTexture) // Not RDG resource
+
+		SHADER_PARAMETER(FVector4f, LightColor)
+		SHADER_PARAMETER(FVector3f, LightDirection)
+
+		SHADER_PARAMETER(FMatrix44f, CameraLocalToWorld)
+		SHADER_PARAMETER(FMatrix44f, CameraWorldToLocal)
+
+		SHADER_PARAMETER(float, VirtualLightWeight)
+		SHADER_PARAMETER(float, RealLightWeight)
 
 		RENDER_TARGET_BINDING_SLOTS()
 	END_SHADER_PARAMETER_STRUCT()

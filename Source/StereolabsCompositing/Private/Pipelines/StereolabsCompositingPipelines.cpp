@@ -3,8 +3,11 @@
 #include "ScreenPass.h"
 #include "StereolabsCompositingShaders.h"
 
+#include "LightSceneProxy.h"
+
 DECLARE_GPU_STAT_NAMED(SlCompDepthProcessingStat, TEXT("SlCompDepthProcessing"));
 DECLARE_GPU_STAT_NAMED(SlCompVolumetricCompositionStat, TEXT("SlCompVolumetricComposition"));
+DECLARE_GPU_STAT_NAMED(SlCompRelightingStat, TEXT("SlCompRelighting"));
 
 
 namespace StereolabsCompositing{
@@ -166,6 +169,43 @@ void StereolabsCompositing::ExecuteVolumetricsCompositionPipeline(
 			PassParameters->VolumetricFogSVPosToVolumeUV = Parameters.VolumetricFogData->VolumetricFogSVPosToVolumeUV;
 			PassParameters->VolumetricFogUVMax = Parameters.VolumetricFogData->VolumetricFogUVMax;
 			PassParameters->OneOverPreExposure = Parameters.VolumetricFogData->OneOverPreExposure;
+		}
+	);
+}
+
+
+void StereolabsCompositing::ExecuteRelightingPipeline(
+	FRDGBuilder& GraphBuilder, 
+	const FRelightingParametersProxy& Parameters,
+	FRDGTextureRef InTexture, 
+	FRDGTextureRef OutTexture
+)
+{
+	check(IsInRenderingThread());
+	check(Parameters.IsValid());
+
+	RDG_EVENT_SCOPE_STAT(GraphBuilder, SlCompRelightingStat, "SlCompRelighting");
+	RDG_GPU_STAT_SCOPE(GraphBuilder, SlCompRelightingStat);
+	SCOPED_NAMED_EVENT(SlCompRelightingStat, FColor::Purple);
+
+	StereolabsCompositing::AddPass<FRelightingPS, TStaticSamplerState<>>(
+		GraphBuilder,
+		RDG_EVENT_NAME("SlCompRelighting"),
+		OutTexture,
+		[&](auto PassParameters)
+		{
+			PassParameters->CameraColorTexture = GraphBuilder.CreateSRV(InTexture);
+			PassParameters->CameraDepthTexture = Parameters.CameraDepthTexture->GetResource()->TextureRHI;
+			PassParameters->CameraNormalTexture = Parameters.CameraNormalTexture->GetResource()->TextureRHI;
+
+			PassParameters->LightColor = Parameters.LightProxy->GetColor();
+			PassParameters->LightDirection = static_cast<FVector3f>(Parameters.LightProxy->GetDirection());
+
+			PassParameters->CameraLocalToWorld = static_cast<FMatrix44f>(Parameters.CameraTransform.ToMatrixNoScale());
+			PassParameters->CameraWorldToLocal = PassParameters->CameraLocalToWorld.Inverse();
+				
+			PassParameters->VirtualLightWeight = Parameters.VirtualLightWeight;
+			PassParameters->RealLightWeight = Parameters.RealLightWeight;
 		}
 	);
 }

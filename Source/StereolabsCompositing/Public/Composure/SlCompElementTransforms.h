@@ -3,6 +3,8 @@
 #include "CoreMinimal.h"
 
 #include "CompositingElements/CompositingElementPasses.h"
+#include "Engine/DirectionalLight.h"
+
 #include "SlCompElementTransforms.generated.h"
 
 
@@ -47,11 +49,41 @@ class STEREOLABSCOMPOSITING_API UCompositingStereolabsVolumetricsPass : public U
 
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Compositing Pass", meta = (DisplayAfter = "PassName", EditCondition = "bEnabled"))
-	FName DepthPassName;
+	FName CameraDepthPassName;
 
 	/** Used to get resources from the scene renderer that are required for composing volumetric effects */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Compositing Pass", meta = (DisplayAfter = "PassName", EditCondition = "bEnabled"))
 	TWeakObjectPtr<class AStereolabsCompositingCaptureBase> StereolabsCGLayer;
+
+public:
+	virtual UTexture* ApplyTransform_Implementation(UTexture* Input, UComposurePostProcessingPassProxy* PostProcessProxy, ACameraActor* TargetCamera) override;
+
+};
+
+
+/**
+ * Applies light sources from the virtual world to the camera image
+ */
+UCLASS(BlueprintType, Blueprintable)
+class STEREOLABSCOMPOSITING_API UCompositingStereolabsRelightingPass : public UCompositingElementTransform
+{
+	GENERATED_BODY()
+
+public:
+	// Need the other camera inputs
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Compositing Pass", meta = (DisplayAfter = "PassName", EditCondition = "bEnabled"))
+	FName CameraNormalPassName;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Compositing Pass", meta = (DisplayAfter = "PassName", EditCondition = "bEnabled"))
+	FName CameraDepthPassName;
+
+	// Light sources used for relighting
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Compositing Pass", meta = (DisplayAfter = "PassName", EditCondition = "bEnabled"))
+	TWeakObjectPtr<ADirectionalLight> LightSource;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Compositing Pass", meta = (DisplayAfter = "PassName", EditCondition = "bEnabled"))
+	float VirtualLightWeight = 1.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Compositing Pass", meta = (DisplayAfter = "PassName", EditCondition = "bEnabled"))
+	float RealLightWeight = 1.0f;
 
 public:
 	virtual UTexture* ApplyTransform_Implementation(UTexture* Input, UComposurePostProcessingPassProxy* PostProcessProxy, ACameraActor* TargetCamera) override;

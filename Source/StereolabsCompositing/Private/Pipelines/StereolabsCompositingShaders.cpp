@@ -13,3 +13,6 @@ IMPLEMENT_GLOBAL_SHADER(FDepthClippingPS, "/Plugin/StereolabsCompositing/DepthPr
 
 
 IMPLEMENT_GLOBAL_SHADER(FVolumetricCompositionPS, "/Plugin/StereolabsCompositing/VolumetricComposition.usf", "VolumetricCompositionPS", SF_Pixel);
+
+
+IMPLEMENT_GLOBAL_SHADER(FRelightingPS, "/Plugin/StereolabsCompositing/Relighting.usf", "RelightingPS", SF_Pixel);
