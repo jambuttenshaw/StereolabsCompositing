@@ -5,6 +5,7 @@
 
 #include "SlCompEngineSubsystem.h"
 #include "Composure/SlCompCaptureBase.h"
+#include "Pipelines/StereolabsCompositingPipelines.h"
 
 
 ///////////////////////////////////////////////
@@ -36,6 +37,10 @@ UTexture* UCompositingStereolabsDepthProcessingPass::ApplyTransform_Implementati
 			Params.bEnableJacobiSteps = bEnableJacobi;
 			Params.NumJacobiSteps = NumJacobiSteps;
 
+			Params.bEnableFarClipping = bEnableFarClipping;
+			Params.FarClipDistance = FarClipDistance;
+
+			Params.bEnableClippingPlane = bEnableFloorClipping;
 			// Construct user clipping plane
 			// THESE DIRECTIONS / POSITIONS USE Y AXIS AS UP/DOWN AND Z AXIS AS FRONT/BACK
 			FPlane ClippingPlane{ FVector{ 0.0f, -FloorClipDistance, 0.0f }, FVector{ 0.0f, 1.0f, 0.0f } };
@@ -45,14 +50,29 @@ UTexture* UCompositingStereolabsDepthProcessingPass::ApplyTransform_Implementati
 				static_cast<float>(ClippingPlane.Z),
 				static_cast<float>(ClippingPlane.W)
 			};
-			Params.FarClipDistance = FarClipDistance;
 
 			ENQUEUE_RENDER_COMMAND(ApplyNPRTransform)(
-				[this, TempParams = MoveTemp(Params), InputResource = Input->GetResource(), OutputResource = RenderTarget->GetResource()]
+				[this, Parameters = MoveTemp(Params), InputResource = Input->GetResource(), OutputResource = RenderTarget->GetResource()]
 				(FRHICommandListImmediate& RHICmdList)
 				{
-					this->Parameters_RenderThread = TempParams;
-					this->ApplyTransform_RenderThread(RHICmdList, InputResource, OutputResource);
+					FRDGBuilder GraphBuilder(RHICmdList);
+
+					TRefCountPtr<IPooledRenderTarget> InputRT = CreateRenderTarget(InputResource->GetTextureRHI(), TEXT("StereolabsDepthProcessingPass.Input"));
+					TRefCountPtr<IPooledRenderTarget> OutputRT = CreateRenderTarget(OutputResource->GetTextureRHI(), TEXT("StereolabsDepthProcessingPass.Output"));
+
+					// Set up RDG resources
+					FRDGTextureRef InColorTexture = GraphBuilder.RegisterExternalTexture(InputRT);
+					FRDGTextureRef OutColorTexture = GraphBuilder.RegisterExternalTexture(OutputRT);
+
+					// Execute pipeline
+					StereolabsCompositing::ExecuteDepthProcessingPipeline(
+						GraphBuilder,
+						Parameters,
+						InColorTexture,
+						OutColorTexture
+					);
+
+					GraphBuilder.Execute();
 				});
 
 			Result = RenderTarget;
@@ -62,33 +82,6 @@ UTexture* UCompositingStereolabsDepthProcessingPass::ApplyTransform_Implementati
 	return Result;
 }
 
-
-void UCompositingStereolabsDepthProcessingPass::ApplyTransform_RenderThread(
-	FRHICommandListImmediate& RHICmdList,
-	FTextureResource* InputResource,
-	FTextureResource* RenderTargetResource) const
-{
-	check(IsInRenderingThread());
-
-	FRDGBuilder GraphBuilder(RHICmdList);
-
-	TRefCountPtr<IPooledRenderTarget> InputRT = CreateRenderTarget(InputResource->GetTextureRHI(), TEXT("StereolabsDepthProcessingPass.Input"));
-	TRefCountPtr<IPooledRenderTarget> OutputRT = CreateRenderTarget(RenderTargetResource->GetTextureRHI(), TEXT("StereolabsDepthProcessingPass.Output"));
-
-	// Set up RDG resources
-	FRDGTextureRef InColorTexture = GraphBuilder.RegisterExternalTexture(InputRT);
-	FRDGTextureRef OutColorTexture = GraphBuilder.RegisterExternalTexture(OutputRT);
-
-	// Execute pipeline
-	StereolabsCompositing::ExecuteDepthProcessingPipeline(
-		GraphBuilder,
-		Parameters_RenderThread,
-		InColorTexture,
-		OutColorTexture
-	);
-
-	GraphBuilder.Execute();
-}
 
 
 ///////////////////////////////////////////

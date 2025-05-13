@@ -89,10 +89,12 @@ float4 JacobiStepPS(
 
 // Camera matrix of Stereolabs camera to project into view space - to compare against planes
 float4x4 InvCameraProjectionMatrix;
-// All depth values on the other side of this plane will be clipped
-float4 UserClippingPlane;
 // All depth values beyond this distance will be clipped
+int bEnableFarClipping;
 float FarClipDistance;
+// All depth values on the other side of this plane will be clipped
+int bEnableClippingPlane;
+float4 UserClippingPlane;
 
 
 float4 DepthClipPS(
@@ -122,10 +124,10 @@ float4 DepthClipPS(
 	float3 ViewSpacePos = DirToNearPlane * D.x;
 
 	// Clip against user-defined clipping planes
-	D.w *= dot(ViewSpacePos.xyz, UserClippingPlane.xyz) - UserClippingPlane.w > 0;
+	D.w *= saturate(bEnableClippingPlane) * dot(ViewSpacePos.xyz, UserClippingPlane.xyz) - UserClippingPlane.w > 0;
 
 	// Clip against far plane
-	D.w *= D.x < FarClipDistance;
+	D.w *= saturate(bEnableFarClipping) * D.x < FarClipDistance;
 
 	// NOTE: Clipped pixels (with D.w == 0) still keep their original depth value - this prevents artefacts in case of sampling the depth texture with bilinear filtering
 	return D;

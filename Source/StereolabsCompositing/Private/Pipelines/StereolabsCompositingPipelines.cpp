@@ -121,8 +121,10 @@ void StereolabsCompositing::ExecuteDepthProcessingPipeline(
 		[&](auto PassParameters)
 		{
 			PassParameters->InvCameraProjectionMatrix = Parameters.InvProjectionMatrix;
-			PassParameters->UserClippingPlane = Parameters.UserClippingPlane;
+			PassParameters->bEnableFarClipping = Parameters.bEnableFarClipping;
 			PassParameters->FarClipDistance = Parameters.FarClipDistance;
+			PassParameters->bEnableClippingPlane = Parameters.bEnableClippingPlane;
+			PassParameters->UserClippingPlane = Parameters.UserClippingPlane;
 
 			PassParameters->InTex = GraphBuilder.CreateSRV(TempTexture1);
 		}

@@ -13,8 +13,10 @@ struct FDepthProcessingParametersProxy
 	uint32 NumJacobiSteps;
 
 	// Post-processing parameters
-	FVector4f UserClippingPlane;
+	bool bEnableFarClipping;
 	float FarClipDistance;
+	bool bEnableClippingPlane;
+	FVector4f UserClippingPlane;
 };
 
 
