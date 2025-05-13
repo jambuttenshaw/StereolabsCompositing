@@ -114,7 +114,7 @@ void StereolabsCompositing::ExecuteDepthProcessingPipeline(
 	}
 
 	// Post Processing
-	StereolabsCompositing::AddPass<FDepthClippingPS>(
+	StereolabsCompositing::AddPass<FDepthClippingPS, TStaticSamplerState<>>(
 		GraphBuilder,
 		RDG_EVENT_NAME("DepthClipping"),
 		OutTexture,
