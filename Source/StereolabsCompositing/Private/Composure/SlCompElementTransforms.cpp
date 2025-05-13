@@ -107,7 +107,6 @@ UTexture* UCompositingStereolabsVolumetricsPass::ApplyTransform_Implementation(U
 	UTextureRenderTarget2D* RenderTarget = RequestRenderTarget(Dims, PF_FloatRGBA);
 	if (!(RenderTarget && RenderTarget->GetResource()))
 		return Result;
-	Result = RenderTarget;
 
 	FVolumetricsCompositionParametersProxy Params;
 	Params.VolumetricFogData = static_cast<const AStereolabsCompositingCaptureBase*>(StereolabsCGLayer.Get())->GetVolumetricFogData();
@@ -142,6 +141,7 @@ UTexture* UCompositingStereolabsVolumetricsPass::ApplyTransform_Implementation(U
 
 			GraphBuilder.Execute();
 		});
+	Result = RenderTarget;
 
 	return Result;
 }
