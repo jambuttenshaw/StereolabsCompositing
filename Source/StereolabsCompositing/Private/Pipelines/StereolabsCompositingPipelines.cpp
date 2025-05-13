@@ -138,6 +138,7 @@ void StereolabsCompositing::ExecuteVolumetricsCompositionPipeline(
 )
 {
 	check(IsInRenderingThread());
+	check(Parameters.IsValid());
 
 	RDG_EVENT_SCOPE_STAT(GraphBuilder, SlCompVolumetricCompositionStat, "SlCompVolumetricComposition");
 	RDG_GPU_STAT_SCOPE(GraphBuilder, SlCompVolumetricCompositionStat);
@@ -156,6 +157,13 @@ void StereolabsCompositing::ExecuteVolumetricsCompositionPipeline(
 
 			PassParameters->IntegratedLightScattering = GraphBuilder.CreateSRV(IntegratedLightScatteringTexture);
 			PassParameters->IntegratedLightScatteringSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
+
+			PassParameters->VolumetricFogStartDistance = Parameters.VolumetricFogData->VolumetricFogStartDistance;
+			PassParameters->VolumetricFogInvGridSize = Parameters.VolumetricFogData->VolumetricFogInvGridSize;
+			PassParameters->VolumetricFogGridZParams = Parameters.VolumetricFogData->VolumetricFogGridZParams;
+			PassParameters->VolumetricFogSVPosToVolumeUV = Parameters.VolumetricFogData->VolumetricFogSVPosToVolumeUV;
+			PassParameters->VolumetricFogUVMax = Parameters.VolumetricFogData->VolumetricFogUVMax;
+			PassParameters->OneOverPreExposure = Parameters.VolumetricFogData->OneOverPreExposure;
 		}
 	);
 }

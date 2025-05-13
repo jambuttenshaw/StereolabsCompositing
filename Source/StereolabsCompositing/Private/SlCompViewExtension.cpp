@@ -17,7 +17,7 @@ static FVector2f SlComp_GetVolumetricFogUVMaxForSampling(const FVector2f& ViewRe
 	return FVector2f(ViewRectSizeXSafe, ViewRectSizeYSafe) / (FVector2f(VolumetricFogResourceGridSize.X, VolumetricFogResourceGridSize.Y) * VolumetricFogResourceGridPixelSize);
 }
 
-FVector GetVolumetricFogGridZParams(float VolumetricFogStartDistance, float NearPlane, float FarPlane, int32 GridSizeZ)
+FVector SlComp_GetVolumetricFogGridZParams(float VolumetricFogStartDistance, float NearPlane, float FarPlane, int32 GridSizeZ)
 {
 	// S = distribution scale
 	// B, O are solved for given the z distances of the first+last slice, and the # of slices.
@@ -45,22 +45,22 @@ FVector GetVolumetricFogGridZParams(float VolumetricFogStartDistance, float Near
 
 // TODO: This should be equal to the cvar declared in VolumetricFog.cpp, but it is not accessible from here
 constexpr int32 GVolumetricFogGridSizeZ = 64;
-static int32 GetVolumetricFogGridSizeZ()
+static int32 SlComp_GetVolumetricFogGridSizeZ()
 {
 	return FMath::Max(1, GVolumetricFogGridSizeZ);
 }
 
 // TODO: This should be equal to the cvar declared in VolumetricFog.cpp, but it is not accessible from here
 constexpr int32 GVolumetricFogGridPixelSize = 16;
-int32 GetVolumetricFogGridPixelSize()
+int32 SlComp_GetVolumetricFogGridPixelSize()
 {
 	return FMath::Max(1, GVolumetricFogGridPixelSize);
 }
 
-static FIntVector GetVolumetricFogGridSize(const FIntPoint& TargetResolution, int32& OutVolumetricFogGridPixelSize)
+static FIntVector SlComp_GetVolumetricFogGridSize(const FIntPoint& TargetResolution, int32& OutVolumetricFogGridPixelSize)
 {
 	FIntPoint VolumetricFogGridSizeXY;
-	int32 VolumetricFogGridPixelSize = GetVolumetricFogGridPixelSize();
+	int32 VolumetricFogGridPixelSize = SlComp_GetVolumetricFogGridPixelSize();
 	VolumetricFogGridSizeXY = FIntPoint::DivideAndRoundUp(TargetResolution, VolumetricFogGridPixelSize);
 	if (VolumetricFogGridSizeXY.X > GMaxVolumeTextureDimensions || VolumetricFogGridSizeXY.Y > GMaxVolumeTextureDimensions) //clamp to max volume texture dimensions. only happens for extreme resolutions (~8x2k)
 	{
@@ -70,10 +70,10 @@ static FIntVector GetVolumetricFogGridSize(const FIntPoint& TargetResolution, in
 		VolumetricFogGridSizeXY = FIntPoint::DivideAndRoundUp(TargetResolution, VolumetricFogGridPixelSize);
 	}
 	OutVolumetricFogGridPixelSize = VolumetricFogGridPixelSize;
-	return FIntVector(VolumetricFogGridSizeXY.X, VolumetricFogGridSizeXY.Y, GetVolumetricFogGridSizeZ());
+	return FIntVector(VolumetricFogGridSizeXY.X, VolumetricFogGridSizeXY.Y, SlComp_GetVolumetricFogGridSizeZ());
 }
 
-static FIntPoint GetVolumetricFogTextureResourceRes(const FViewInfo& View)
+static FIntPoint SlComp_GetVolumetricFogTextureResourceRes(const FViewInfo& View)
 {
 	// Allocate texture using scene render targets size so we do not reallocate every frame when dynamic resolution is used in order to avoid resources allocation hitches.
 	FIntPoint BufferSize = View.GetSceneTexturesConfig().Extent;
@@ -83,9 +83,9 @@ static FIntPoint GetVolumetricFogTextureResourceRes(const FViewInfo& View)
 	return BufferSize;
 }
 
-FIntVector GetVolumetricFogResourceGridSize(const FViewInfo& View, int32& OutVolumetricFogGridPixelSize)
+FIntVector SlComp_GetVolumetricFogResourceGridSize(const FViewInfo& View, int32& OutVolumetricFogGridPixelSize)
 {
-	return GetVolumetricFogGridSize(GetVolumetricFogTextureResourceRes(View), OutVolumetricFogGridPixelSize);
+	return SlComp_GetVolumetricFogGridSize(SlComp_GetVolumetricFogTextureResourceRes(View), OutVolumetricFogGridPixelSize);
 }
 
 
@@ -105,7 +105,11 @@ void FSlCompViewExtension::PostRenderView_RenderThread(FRDGBuilder& GraphBuilder
 	FVolumetricFogRequiredData* VolumetricFogData = CaptureActor.Get()->GetVolumetricFogData();
 	FViewInfo& ViewInfo = static_cast<FViewInfo&>(View);
 
-	const FScene* Scene = (FScene*)View.Family->Scene;
+	const FScene* Scene = static_cast<const FScene*>(View.Family->Scene);
+	if (!Scene || Scene->ExponentialFogs.Num() == 0)
+	{
+		return;
+	}
 	const FExponentialHeightFogSceneInfo& FogInfo = Scene->ExponentialFogs[0];
 
 	// Get fog info to pass along to composure
@@ -114,11 +118,13 @@ void FSlCompViewExtension::PostRenderView_RenderThread(FRDGBuilder& GraphBuilder
 		GraphBuilder.QueueTextureExtraction(Tex, &VolumetricFogData->IntegratedLightScatteringTexture);
 	}
 
+	// Get the properties required to be able to evaluate the volumetric fog in a composure pass
 	int32 VolumetricFogGridPixelSize;
-	const FIntVector VolumetricFogResourceGridSize = GetVolumetricFogResourceGridSize(ViewInfo, VolumetricFogGridPixelSize);
+	const FIntVector VolumetricFogResourceGridSize = SlComp_GetVolumetricFogResourceGridSize(ViewInfo, VolumetricFogGridPixelSize);
 
 	VolumetricFogData->VolumetricFogStartDistance = ViewInfo.VolumetricFogStartDistance;
-	FVector ZParams = GetVolumetricFogGridZParams(ViewInfo.VolumetricFogStartDistance, ViewInfo.NearClippingDistance, FogInfo.VolumetricFogDistance, /*VolumetricFogResourceGridSize.Z*/1);
+	VolumetricFogData->VolumetricFogInvGridSize = FVector3f::OneVector / static_cast<FVector3f>(VolumetricFogResourceGridSize);
+	FVector ZParams = SlComp_GetVolumetricFogGridZParams(ViewInfo.VolumetricFogStartDistance, ViewInfo.NearClippingDistance, FogInfo.VolumetricFogDistance, VolumetricFogResourceGridSize.Z);
 	VolumetricFogData->VolumetricFogGridZParams = static_cast<FVector3f>(ZParams);
 	VolumetricFogData->VolumetricFogSVPosToVolumeUV = FVector2f::UnitVector / (FVector2f(VolumetricFogResourceGridSize.X, VolumetricFogResourceGridSize.Y) * VolumetricFogGridPixelSize);
 	VolumetricFogData->VolumetricFogUVMax = SlComp_GetVolumetricFogUVMaxForSampling(ViewInfo.ViewRect.Size(), VolumetricFogResourceGridSize, VolumetricFogGridPixelSize);

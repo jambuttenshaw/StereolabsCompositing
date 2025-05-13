@@ -26,10 +26,18 @@ struct FVolumetricFogRequiredData
 
 	// Associated parameters
 	float VolumetricFogStartDistance;
+	FVector3f VolumetricFogInvGridSize;
 	FVector3f VolumetricFogGridZParams;
 	FVector2f VolumetricFogSVPosToVolumeUV;
 	FVector2f VolumetricFogUVMax;
 	float OneOverPreExposure;
+
+	bool IsValid() const
+	{
+		bool bValid = true;
+		bValid &= IntegratedLightScatteringTexture.IsValid();
+		return bValid;
+	}
 };
 
 struct FVolumetricsCompositionParametersProxy
@@ -37,6 +45,15 @@ struct FVolumetricsCompositionParametersProxy
 	UTexture* CameraDepthTexture;
 
 	const FVolumetricFogRequiredData* VolumetricFogData;
+
+	bool IsValid() const
+	{
+		bool bValid = true;
+		bValid &= CameraDepthTexture != nullptr;
+		bValid &= VolumetricFogData != nullptr;
+		bValid &= VolumetricFogData->IsValid();
+		return bValid;
+	}
 };
 
 

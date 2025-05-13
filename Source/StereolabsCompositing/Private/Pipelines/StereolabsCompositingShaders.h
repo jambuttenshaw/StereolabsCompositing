@@ -110,6 +110,13 @@ class FVolumetricCompositionPS : public FGlobalShader
 		SHADER_PARAMETER_RDG_TEXTURE_SRV(Texture3D, IntegratedLightScattering)
 		SHADER_PARAMETER_SAMPLER(SamplerState, IntegratedLightScatteringSampler)
 
+		SHADER_PARAMETER(float, VolumetricFogStartDistance)
+		SHADER_PARAMETER(FVector3f, VolumetricFogInvGridSize)
+		SHADER_PARAMETER(FVector3f, VolumetricFogGridZParams)
+		SHADER_PARAMETER(FVector2f, VolumetricFogSVPosToVolumeUV)
+		SHADER_PARAMETER(FVector2f, VolumetricFogUVMax)
+		SHADER_PARAMETER(float, OneOverPreExposure)
+
 		RENDER_TARGET_BINDING_SLOTS()
 	END_SHADER_PARAMETER_STRUCT()
 };
