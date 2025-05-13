@@ -102,7 +102,7 @@ float4 DepthClipPS(
 	// Sample depth at location
 	float4 D = InTex.Sample(sampler0, InUV);
 
-	if (all(D == 0.0f))
+	if (all(D.rgb == 0.0f))
 	{
 		// Depth is INVALID (depth reconstruction marks invalid areas with alpha=1)
 		// The rest of the pipeline expects invalid areas to be transparent
