@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ScreenPass.h"
+#include "SceneManagement.h"
 
 
 class FPreProcessDepthPS : public FGlobalShader
@@ -139,15 +140,20 @@ class FRelightingPS : public FGlobalShader
 		SHADER_PARAMETER_TEXTURE(Texture2D<float4>, CameraDepthTexture) // Not RDG resource
 		SHADER_PARAMETER_TEXTURE(Texture2D<float4>, CameraNormalTexture) // Not RDG resource
 
-		SHADER_PARAMETER(FVector4f, LightColor)
 		SHADER_PARAMETER(FVector3f, LightDirection)
+		SHADER_PARAMETER(FVector3f, LightColor)
 
 		SHADER_PARAMETER(FMatrix44f, CameraLocalToWorld)
 		SHADER_PARAMETER(FMatrix44f, CameraWorldToLocal)
 
-		SHADER_PARAMETER(float, VirtualLightWeight)
-		SHADER_PARAMETER(float, RealLightWeight)
+		SHADER_PARAMETER(float, LightWeight)
 
 		RENDER_TARGET_BINDING_SLOTS()
 	END_SHADER_PARAMETER_STRUCT()
+
+	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
+	{
+		FGlobalShader::ModifyCompilationEnvironment(Parameters, OutEnvironment);
+		OutEnvironment.SetDefine(TEXT("SUPPORT_CONTACT_SHADOWS"), false);
+	}
 };

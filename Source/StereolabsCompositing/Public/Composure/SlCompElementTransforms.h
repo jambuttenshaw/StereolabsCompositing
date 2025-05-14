@@ -81,9 +81,7 @@ public:
 	TWeakObjectPtr<ADirectionalLight> LightSource;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Compositing Pass", meta = (DisplayAfter = "PassName", EditCondition = "bEnabled"))
-	float VirtualLightWeight = 1.0f;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Compositing Pass", meta = (DisplayAfter = "PassName", EditCondition = "bEnabled"))
-	float RealLightWeight = 1.0f;
+	float LightWeight = 1.0f;
 
 public:
 	virtual UTexture* ApplyTransform_Implementation(UTexture* Input, UComposurePostProcessingPassProxy* PostProcessProxy, ACameraActor* TargetCamera) override;

@@ -170,8 +170,7 @@ UTexture* UCompositingStereolabsRelightingPass::ApplyTransform_Implementation(UT
 	Params.CameraTransform.SetRotation(CameraView.Rotation.Quaternion());
 	Params.CameraTransform.SetTranslation(CameraView.Location);
 
-	Params.VirtualLightWeight = VirtualLightWeight;
-	Params.RealLightWeight = RealLightWeight;
+	Params.LightWeight = LightWeight;
 
 	if (!bSuccess || !Params.IsValid())
 		return Input;

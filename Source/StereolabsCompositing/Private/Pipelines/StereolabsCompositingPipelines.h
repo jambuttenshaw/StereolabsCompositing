@@ -68,8 +68,7 @@ struct FRelightingParametersProxy
 
 	FTransform CameraTransform;
 
-	float VirtualLightWeight;
-	float RealLightWeight;
+	float LightWeight;
 
 	bool IsValid() const
 	{

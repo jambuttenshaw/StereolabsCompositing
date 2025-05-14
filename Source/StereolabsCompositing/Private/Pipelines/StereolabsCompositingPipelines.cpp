@@ -2,7 +2,6 @@
 
 #include "ScreenPass.h"
 #include "StereolabsCompositingShaders.h"
-
 #include "LightSceneProxy.h"
 
 DECLARE_GPU_STAT_NAMED(SlCompDepthProcessingStat, TEXT("SlCompDepthProcessing"));
@@ -198,14 +197,13 @@ void StereolabsCompositing::ExecuteRelightingPipeline(
 			PassParameters->CameraDepthTexture = Parameters.CameraDepthTexture->GetResource()->TextureRHI;
 			PassParameters->CameraNormalTexture = Parameters.CameraNormalTexture->GetResource()->TextureRHI;
 
-			PassParameters->LightColor = Parameters.LightProxy->GetColor();
+			PassParameters->LightColor = static_cast<FVector3f>(Parameters.LightProxy->GetColor());
 			PassParameters->LightDirection = static_cast<FVector3f>(Parameters.LightProxy->GetDirection());
 
 			PassParameters->CameraLocalToWorld = static_cast<FMatrix44f>(Parameters.CameraTransform.ToMatrixNoScale());
 			PassParameters->CameraWorldToLocal = PassParameters->CameraLocalToWorld.Inverse();
 				
-			PassParameters->VirtualLightWeight = Parameters.VirtualLightWeight;
-			PassParameters->RealLightWeight = Parameters.RealLightWeight;
+			PassParameters->LightWeight = Parameters.LightWeight;
 		}
 	);
 }
