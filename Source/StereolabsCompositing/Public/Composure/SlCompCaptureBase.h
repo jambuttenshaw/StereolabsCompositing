@@ -18,15 +18,14 @@ class STEREOLABSCOMPOSITING_API AStereolabsCompositingCaptureBase : public AComp
 public:
 	AStereolabsCompositingCaptureBase();
 
-
-	const FVolumetricFogRequiredData* GetVolumetricFogData() const { return VolumetricFogData_RenderThread.Get(); }
+	const FVolumetricFogRequiredData* GetVolumetricFogData() const;
 protected:
-	FVolumetricFogRequiredData* GetVolumetricFogData() { return VolumetricFogData_RenderThread.Get(); }
+	FVolumetricFogRequiredData* GetVolumetricFogData();
 
 	// Rendering resources extracted from the scene renderer for use in composition
 	// This layer provides a place to keep these resources safe and reference them in later Composure passes,
 	// after the scene rendering has been completed
-	TUniquePtr<FVolumetricFogRequiredData> VolumetricFogData_RenderThread;
+	TSharedPtr<struct FVolumetricFogRequiredData> VolumetricFogData_RenderThread;
 
 private:
 	TSharedPtr<class FSlCompViewExtension, ESPMode::ThreadSafe> SlCompViewExtension;

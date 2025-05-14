@@ -6,7 +6,7 @@
 #include "SceneRendering.h"
 
 #include "Composure/SlCompCaptureBase.h"
-#include "Pipelines/StereolabsCompositingPipelines.h"
+#include "Pipelines/SlCompPipelines.h"
 
 
 // Some helper functions copied from the private renderer implementation

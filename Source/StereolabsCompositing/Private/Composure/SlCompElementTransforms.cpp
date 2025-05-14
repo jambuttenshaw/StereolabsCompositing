@@ -5,7 +5,7 @@
 
 #include "SlCompEngineSubsystem.h"
 #include "Composure/SlCompCaptureBase.h"
-#include "Pipelines/StereolabsCompositingPipelines.h"
+#include "Pipelines/SlCompPipelines.h"
 
 #include "Components/DirectionalLightComponent.h"
 

@@ -1,7 +1,6 @@
-#pragma once
+#include "SlCompPipelines.h"
 
-#include "ScreenPass.h"
-#include "SceneManagement.h"
+DECLARE_GPU_STAT_NAMED(SlCompDepthProcessingStat, TEXT("SlCompDepthProcessing"));
 
 
 class FPreProcessDepthPS : public FGlobalShader
@@ -20,6 +19,8 @@ class FPreProcessDepthPS : public FGlobalShader
 	END_SHADER_PARAMETER_STRUCT()
 };
 
+IMPLEMENT_GLOBAL_SHADER(FPreProcessDepthPS, "/Plugin/StereolabsCompositing/DepthProcessing.usf", "PreProcessDepthPS", SF_Pixel);
+
 
 class FRestrictPS : public FGlobalShader
 {
@@ -36,6 +37,8 @@ class FRestrictPS : public FGlobalShader
 		RENDER_TARGET_BINDING_SLOTS()
 	END_SHADER_PARAMETER_STRUCT()
 };
+
+IMPLEMENT_GLOBAL_SHADER(FRestrictPS, "/Plugin/StereolabsCompositing/DepthProcessing.usf", "RestrictPS", SF_Pixel);
 
 
 class FInterpolatePS : public FGlobalShader
@@ -54,6 +57,8 @@ class FInterpolatePS : public FGlobalShader
 	END_SHADER_PARAMETER_STRUCT()
 };
 
+IMPLEMENT_GLOBAL_SHADER(FInterpolatePS, "/Plugin/StereolabsCompositing/DepthProcessing.usf", "InterpolatePS", SF_Pixel);
+
 
 class FJacobiStepPS : public FGlobalShader
 {
@@ -70,6 +75,8 @@ class FJacobiStepPS : public FGlobalShader
 		RENDER_TARGET_BINDING_SLOTS()
 	END_SHADER_PARAMETER_STRUCT()
 };
+
+IMPLEMENT_GLOBAL_SHADER(FJacobiStepPS, "/Plugin/StereolabsCompositing/DepthProcessing.usf", "JacobiStepPS", SF_Pixel);
 
 
 // Post-processing on reconstructed depth, including clipping against specified planes
@@ -95,65 +102,76 @@ class FDepthClippingPS : public FGlobalShader
 	END_SHADER_PARAMETER_STRUCT()
 };
 
+IMPLEMENT_GLOBAL_SHADER(FDepthClippingPS, "/Plugin/StereolabsCompositing/DepthProcessing.usf", "DepthClipPS", SF_Pixel);
 
 
-class FVolumetricCompositionPS : public FGlobalShader
+
+void StereolabsCompositing::ExecuteDepthProcessingPipeline(
+	FRDGBuilder& GraphBuilder,
+	const FDepthProcessingParametersProxy& Parameters,
+	FRDGTextureRef InTexture,
+	FRDGTextureRef OutTexture
+)
 {
-	DECLARE_GLOBAL_SHADER(FVolumetricCompositionPS)
-	SHADER_USE_PARAMETER_STRUCT(FVolumetricCompositionPS, FGlobalShader)
+	check(IsInRenderingThread());
 
-	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
-		SHADER_PARAMETER_STRUCT(FScreenPassTextureViewportParameters, OutViewPort)
-		SHADER_PARAMETER_STRUCT(FScreenPassTextureViewportParameters, InViewPort)
-		SHADER_PARAMETER_SAMPLER(SamplerState, sampler0)
+	RDG_EVENT_SCOPE_STAT(GraphBuilder, SlCompDepthProcessingStat, "SlCompDepthProcessing");
+	RDG_GPU_STAT_SCOPE(GraphBuilder, SlCompDepthProcessingStat);
+	SCOPED_NAMED_EVENT(SlCompDepthProcessing, FColor::Purple);
 
-		SHADER_PARAMETER_RDG_TEXTURE_SRV(Texture2D<float4>, CameraColorTexture)
-		SHADER_PARAMETER_TEXTURE(Texture2D<float4>, CameraDepthTexture) // Not RDG resource
+	FRDGTextureRef TempTexture1 = CreateTextureFrom(GraphBuilder, OutTexture, TEXT("StereolabsCompositingDepthProcessing.Temp1"));
+	FRDGTextureRef TempTexture2 = CreateTextureFrom(GraphBuilder, OutTexture, TEXT("StereolabsCompositingDepthProcessing.Temp2"));
 
-		SHADER_PARAMETER_RDG_TEXTURE_SRV(Texture3D, IntegratedLightScattering)
-		SHADER_PARAMETER_SAMPLER(SamplerState, IntegratedLightScatteringSampler)
+	StereolabsCompositing::AddPass<FPreProcessDepthPS>(
+		GraphBuilder,
+		RDG_EVENT_NAME("PreProcessDepth"),
+		TempTexture1,
+		[&](auto PassParameters)
+		{
+			PassParameters->InTex = GraphBuilder.CreateSRV(InTexture);
+		}
+	);
 
-		SHADER_PARAMETER(float, VolumetricFogStartDistance)
-		SHADER_PARAMETER(FVector3f, VolumetricFogInvGridSize)
-		SHADER_PARAMETER(FVector3f, VolumetricFogGridZParams)
-		SHADER_PARAMETER(FVector2f, VolumetricFogSVPosToVolumeUV)
-		SHADER_PARAMETER(FVector2f, VolumetricFogUVMax)
-		SHADER_PARAMETER(float, OneOverPreExposure)
-
-		RENDER_TARGET_BINDING_SLOTS()
-	END_SHADER_PARAMETER_STRUCT()
-};
-
-
-
-class FRelightingPS : public FGlobalShader
-{
-	DECLARE_GLOBAL_SHADER(FRelightingPS)
-	SHADER_USE_PARAMETER_STRUCT(FRelightingPS, FGlobalShader)
-
-	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
-		SHADER_PARAMETER_STRUCT(FScreenPassTextureViewportParameters, OutViewPort)
-		SHADER_PARAMETER_STRUCT(FScreenPassTextureViewportParameters, InViewPort)
-		SHADER_PARAMETER_SAMPLER(SamplerState, sampler0)
-
-		SHADER_PARAMETER_RDG_TEXTURE_SRV(Texture2D<float4>, CameraColorTexture)
-		SHADER_PARAMETER_TEXTURE(Texture2D<float4>, CameraDepthTexture) // Not RDG resource
-		SHADER_PARAMETER_TEXTURE(Texture2D<float4>, CameraNormalTexture) // Not RDG resource
-
-		SHADER_PARAMETER(FVector3f, LightDirection)
-		SHADER_PARAMETER(FVector3f, LightColor)
-
-		SHADER_PARAMETER(FMatrix44f, CameraLocalToWorld)
-		SHADER_PARAMETER(FMatrix44f, CameraWorldToLocal)
-
-		SHADER_PARAMETER(float, LightWeight)
-
-		RENDER_TARGET_BINDING_SLOTS()
-	END_SHADER_PARAMETER_STRUCT()
-
-	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
+	if (Parameters.bEnableJacobiSteps)
 	{
-		FGlobalShader::ModifyCompilationEnvironment(Parameters, OutEnvironment);
-		OutEnvironment.SetDefine(TEXT("SUPPORT_CONTACT_SHADOWS"), false);
+		for (uint32 i = 0; i < Parameters.NumJacobiSteps; i++)
+		{
+			StereolabsCompositing::AddPass<FJacobiStepPS, TStaticSamplerState<>>(
+				GraphBuilder,
+				RDG_EVENT_NAME("JacobiStep(i=%d)", 2 * i),
+				TempTexture2,
+				[&](auto PassParameters)
+				{
+					PassParameters->InTex = GraphBuilder.CreateSRV(TempTexture1);
+				}
+			);
+
+			StereolabsCompositing::AddPass<FJacobiStepPS, TStaticSamplerState<>>(
+				GraphBuilder,
+				RDG_EVENT_NAME("JacobiStep(i=%d)", 2 * i + 1),
+				TempTexture1,
+				[&](auto PassParameters)
+				{
+					PassParameters->InTex = GraphBuilder.CreateSRV(TempTexture2);
+				}
+			);
+		}
 	}
-};
+
+	// Post Processing
+	StereolabsCompositing::AddPass<FDepthClippingPS, TStaticSamplerState<>>(
+		GraphBuilder,
+		RDG_EVENT_NAME("DepthClipping"),
+		OutTexture,
+		[&](auto PassParameters)
+		{
+			PassParameters->InvCameraProjectionMatrix = Parameters.InvProjectionMatrix;
+			PassParameters->bEnableFarClipping = Parameters.bEnableFarClipping;
+			PassParameters->FarClipDistance = Parameters.FarClipDistance;
+			PassParameters->bEnableClippingPlane = Parameters.bEnableClippingPlane;
+			PassParameters->UserClippingPlane = Parameters.UserClippingPlane;
+
+			PassParameters->InTex = GraphBuilder.CreateSRV(TempTexture1);
+		}
+	);
+}
