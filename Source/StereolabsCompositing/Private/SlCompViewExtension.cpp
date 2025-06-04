@@ -1,92 +1,52 @@
 #include "SlCompViewExtension.h"
 
+#include "Composure/SlCompCaptureBase.h"
+#include "ScreenPass.h"
+
 #include "RenderGraphBuilder.h"
-#include "SceneCore.h"
-#include "ScenePrivate.h"
 #include "SceneRendering.h"
 
-#include "Composure/SlCompCaptureBase.h"
-#include "Pipelines/SlCompPipelines.h"
-
-
-// Some helper functions copied from the private renderer implementation
-static FVector2f SlComp_GetVolumetricFogUVMaxForSampling(const FVector2f& ViewRectSize, FIntVector VolumetricFogResourceGridSize, int32 VolumetricFogResourceGridPixelSize)
+class FCameraFeedInjectionPS : public FGlobalShader
 {
-	float ViewRectSizeXSafe = FMath::DivideAndRoundUp<int32>(int32(ViewRectSize.X), VolumetricFogResourceGridPixelSize) * VolumetricFogResourceGridPixelSize - (VolumetricFogResourceGridPixelSize / 2 + 1);
-	float ViewRectSizeYSafe = FMath::DivideAndRoundUp<int32>(int32(ViewRectSize.Y), VolumetricFogResourceGridPixelSize) * VolumetricFogResourceGridPixelSize - (VolumetricFogResourceGridPixelSize / 2 + 1);
-	return FVector2f(ViewRectSizeXSafe, ViewRectSizeYSafe) / (FVector2f(VolumetricFogResourceGridSize.X, VolumetricFogResourceGridSize.Y) * VolumetricFogResourceGridPixelSize);
-}
+	DECLARE_GLOBAL_SHADER(FCameraFeedInjectionPS);
+	SHADER_USE_PARAMETER_STRUCT(FCameraFeedInjectionPS, FGlobalShader)
 
-FVector SlComp_GetVolumetricFogGridZParams(float VolumetricFogStartDistance, float NearPlane, float FarPlane, int32 GridSizeZ)
-{
-	// S = distribution scale
-	// B, O are solved for given the z distances of the first+last slice, and the # of slices.
-	//
-	// slice = log2(z*B + O) * S
+	BEGIN_SHADER_PARAMETER_STRUCT(FParameters,)
+		SHADER_PARAMETER_STRUCT_REF(FViewUniformShaderParameters, View)
 
-	// Don't spend lots of resolution right in front of the near plane
+		SHADER_PARAMETER_STRUCT(FScreenPassTextureViewportParameters, InputViewPort)
+		SHADER_PARAMETER_STRUCT(FScreenPassTextureViewportParameters, OutputViewPort)
 
-	NearPlane = FMath::Max(NearPlane, double(VolumetricFogStartDistance));
+		SHADER_PARAMETER_TEXTURE(Texture2D<float4>, CameraColorTexture) // Not RDG resources
+		SHADER_PARAMETER_TEXTURE(Texture2D<float4>, CameraDepthTexture) 
+		SHADER_PARAMETER_TEXTURE(Texture2D<float4>, CameraNormalsTexture)
 
-	double NearOffset = .095 * 100.0;
-	// Space out the slices so they aren't all clustered at the near plane
-	// TODO: This should be equal to the cvar declared in VolumetricFog.cpp, but it is not accessible from here
-	constexpr float GVolumetricFogDepthDistributionScale = 32.0f;
-	double S = GVolumetricFogDepthDistributionScale;
+		SHADER_PARAMETER(float, AlbedoMultiplier)
+		SHADER_PARAMETER(float, AmbientMultiplier)
 
-	double N = NearPlane + NearOffset;
-	double F = FarPlane;
+		SHADER_PARAMETER(float, RoughnessOverride)
+		SHADER_PARAMETER(float, SpecularOverride)
 
-	double O = (F - N * FMath::Exp2((GridSizeZ - 1) / S)) / (F - N);
-	double B = (1 - O) / N;
+		RENDER_TARGET_BINDING_SLOTS()
+	END_SHADER_PARAMETER_STRUCT()
 
-	return FVector(B, O, S);
-}
-
-// TODO: This should be equal to the cvar declared in VolumetricFog.cpp, but it is not accessible from here
-constexpr int32 GVolumetricFogGridSizeZ = 64;
-static int32 SlComp_GetVolumetricFogGridSizeZ()
-{
-	return FMath::Max(1, GVolumetricFogGridSizeZ);
-}
-
-// TODO: This should be equal to the cvar declared in VolumetricFog.cpp, but it is not accessible from here
-constexpr int32 GVolumetricFogGridPixelSize = 16;
-int32 SlComp_GetVolumetricFogGridPixelSize()
-{
-	return FMath::Max(1, GVolumetricFogGridPixelSize);
-}
-
-static FIntVector SlComp_GetVolumetricFogGridSize(const FIntPoint& TargetResolution, int32& OutVolumetricFogGridPixelSize)
-{
-	FIntPoint VolumetricFogGridSizeXY;
-	int32 VolumetricFogGridPixelSize = SlComp_GetVolumetricFogGridPixelSize();
-	VolumetricFogGridSizeXY = FIntPoint::DivideAndRoundUp(TargetResolution, VolumetricFogGridPixelSize);
-	if (VolumetricFogGridSizeXY.X > GMaxVolumeTextureDimensions || VolumetricFogGridSizeXY.Y > GMaxVolumeTextureDimensions) //clamp to max volume texture dimensions. only happens for extreme resolutions (~8x2k)
+	static void ModifyCompilationEnvironment(
+		const FGlobalShaderPermutationParameters& Parameters,
+		FShaderCompilerEnvironment& OutEnvironment
+	)
 	{
-		float PixelSizeX = (float)TargetResolution.X / GMaxVolumeTextureDimensions;
-		float PixelSizeY = (float)TargetResolution.Y / GMaxVolumeTextureDimensions;
-		VolumetricFogGridPixelSize = FMath::Max(FMath::CeilToInt(PixelSizeX), FMath::CeilToInt(PixelSizeY));
-		VolumetricFogGridSizeXY = FIntPoint::DivideAndRoundUp(TargetResolution, VolumetricFogGridPixelSize);
+		FGlobalShader::ModifyCompilationEnvironment(Parameters, OutEnvironment);
+
+		// We need to set these so that the shader generation utils will set up the GBuffer writing defines
+		// TODO: This will probably cause all sorts of problems if also using substrate
+		// TODO: because the render target layout is different
+		OutEnvironment.SetDefine(TEXT("IS_BASE_PASS"), true);
+		OutEnvironment.SetDefine(TEXT("MATERIALBLENDING_SOLID"), true);
+		OutEnvironment.SetDefine(TEXT("MATERIAL_SHADINGMODEL_DEFAULT_LIT"), true);
 	}
-	OutVolumetricFogGridPixelSize = VolumetricFogGridPixelSize;
-	return FIntVector(VolumetricFogGridSizeXY.X, VolumetricFogGridSizeXY.Y, SlComp_GetVolumetricFogGridSizeZ());
-}
+};
 
-static FIntPoint SlComp_GetVolumetricFogTextureResourceRes(const FViewInfo& View)
-{
-	// Allocate texture using scene render targets size so we do not reallocate every frame when dynamic resolution is used in order to avoid resources allocation hitches.
-	FIntPoint BufferSize = View.GetSceneTexturesConfig().Extent;
-	// Make sure the buffer size has some minimum resolution to make sure everything is always valid.
-	BufferSize.X = FMath::Max(1, BufferSize.X);
-	BufferSize.Y = FMath::Max(1, BufferSize.Y);
-	return BufferSize;
-}
-
-FIntVector SlComp_GetVolumetricFogResourceGridSize(const FViewInfo& View, int32& OutVolumetricFogGridPixelSize)
-{
-	return SlComp_GetVolumetricFogGridSize(SlComp_GetVolumetricFogTextureResourceRes(View), OutVolumetricFogGridPixelSize);
-}
+IMPLEMENT_GLOBAL_SHADER(FCameraFeedInjectionPS, "/Plugin/StereolabsCompositing/CameraFeedInjection.usf", "InjectCameraFeedPS", SF_Pixel)
 
 
 FSlCompViewExtension::FSlCompViewExtension(const FAutoRegister& AutoRegister, AStereolabsCompositingCaptureBase* Owner)
@@ -95,38 +55,111 @@ FSlCompViewExtension::FSlCompViewExtension(const FAutoRegister& AutoRegister, AS
 {
 }
 
+bool FSlCompViewExtension::IsRenderingToSlCaptureActor(const FSceneView& View) const
+{
+	return View.bIsSceneCapture && View.bIsViewInfo && CaptureActor.IsValid();
+}
+
+
+void FSlCompViewExtension::PostRenderBasePassDeferred_RenderThread(FRDGBuilder& GraphBuilder, FSceneView& InView, const FRenderTargetBindingSlots& RenderTargets, TRDGUniformBufferRef<FSceneTextureUniformParameters> SceneTextures)
+{
+	if (!IsRenderingToSlCaptureActor(InView))
+	{
+		return;
+	}
+
+	if (CaptureActor->bInjectionMode)
+	{
+		InjectCameraFeed(GraphBuilder, InView, RenderTargets, SceneTextures);
+	}
+}
+
 void FSlCompViewExtension::PostRenderView_RenderThread(FRDGBuilder& GraphBuilder, FSceneView& View)
 {
 	// Make sure this is only active when rendering to a SlCompCaptureBase
-	if (!View.bIsSceneCapture || !View.bIsViewInfo || !CaptureActor.IsValid())
+	if (!IsRenderingToSlCaptureActor(View))
 	{
 		return;
 	}
-	FVolumetricFogRequiredData* VolumetricFogData = CaptureActor.Get()->GetVolumetricFogData();
-	FViewInfo& ViewInfo = static_cast<FViewInfo&>(View);
 
-	const FScene* Scene = static_cast<const FScene*>(View.Family->Scene);
-	if (!Scene || Scene->ExponentialFogs.Num() == 0)
+	if (!CaptureActor->bInjectionMode || CaptureActor->bExtractVolumetricFogInInjectionMode)
+	{
+		ExtractVolumetricFog(GraphBuilder, View);
+	}
+}
+
+
+void FSlCompViewExtension::InjectCameraFeed(FRDGBuilder& GraphBuilder, FSceneView& InView, const FRenderTargetBindingSlots& RenderTargets, TRDGUniformBufferRef<FSceneTextureUniformParameters> SceneTextures) const
+{
+	// Should be checked prior to calling
+	check(IsRenderingToSlCaptureActor(InView))
+	FViewInfo& ViewInfo = static_cast<FViewInfo&>(InView); // We checked earlier that InView is a FViewInfo
+
+	// Get camera images and insert them into GBuffer
+	// Some of these textures may be nullptr, must check for that later
+	FStereolabsCameraTextures CameraTextures = CaptureActor->GetCameraTextures();
+
+	bool bAllValid = CameraTextures.ColorTexture != nullptr
+		&& CameraTextures.DepthTexture != nullptr
+		&& CameraTextures.NormalsTexture != nullptr;
+
+	if (!bAllValid)
 	{
 		return;
 	}
-	const FExponentialHeightFogSceneInfo& FogInfo = Scene->ExponentialFogs[0];
 
-	// Get fog info to pass along to composure
-	if (auto Tex = ViewInfo.VolumetricFogResources.IntegratedLightScatteringTexture)
 	{
-		GraphBuilder.QueueTextureExtraction(Tex, &VolumetricFogData->IntegratedLightScatteringTexture);
+		FCameraFeedInjectionPS::FParameters* PassParameters = GraphBuilder.AllocParameters<FCameraFeedInjectionPS::FParameters>();
+
+		PassParameters->View = InView.ViewUniformBuffer;
+
+		PassParameters->CameraColorTexture = CameraTextures.ColorTexture->GetResource()->TextureRHI;
+		PassParameters->CameraDepthTexture = CameraTextures.DepthTexture->GetResource()->TextureRHI;
+		PassParameters->CameraNormalsTexture = CameraTextures.NormalsTexture->GetResource()->TextureRHI;
+
+		PassParameters->AmbientMultiplier = CaptureActor->AmbientMultiplier;
+		PassParameters->AlbedoMultiplier = CaptureActor->AlbedoMultiplier;
+
+		PassParameters->RoughnessOverride = CaptureActor->RoughnessOverride;
+		PassParameters->SpecularOverride = CaptureActor->SpecularOverride;
+
+		// Get GBuffer
+		const FSceneTextures& SceneTexturesData = ViewInfo.GetSceneTextures();
+		TStaticArray<FTextureRenderTargetBinding, MaxSimultaneousRenderTargets> RenderTargetTextures;
+		uint32 RenderTargetTextureCount = SceneTexturesData.GetGBufferRenderTargets(RenderTargetTextures);
+		TArrayView<FTextureRenderTargetBinding> RenderTargetTexturesView(RenderTargetTextures.GetData(), RenderTargetTextureCount);
+
+		FRDGTextureRef DepthTexture = GetIfProduced(SceneTexturesData.Depth.Target);
+		check(DepthTexture);
+
+		PassParameters->RenderTargets = GetRenderTargetBindings(ERenderTargetLoadAction::ELoad, RenderTargetTexturesView);
+		PassParameters->RenderTargets.DepthStencil = FDepthStencilBinding(
+			DepthTexture, ERenderTargetLoadAction::ELoad,
+			ERenderTargetLoadAction::ENoAction, FExclusiveDepthStencil::DepthWrite_StencilNop 
+		);
+
+		FGlobalShaderMap* ShaderMap = GetGlobalShaderMap(InView.FeatureLevel);
+
+		TShaderMapRef<FScreenPassVS> VertexShader(ShaderMap);
+		TShaderMapRef<FCameraFeedInjectionPS> PixelShader(ShaderMap);
+
+		FScreenPassTextureViewport ViewPort(ViewInfo.ViewRect.Size());
+
+		PassParameters->InputViewPort = GetScreenPassTextureViewportParameters(ViewPort);
+		PassParameters->OutputViewPort = GetScreenPassTextureViewportParameters(ViewPort);
+
+		using FCompositionDepthStencilState = TStaticDepthStencilState<true, CF_Greater>;
+
+		AddDrawScreenPass(
+			GraphBuilder,
+			RDG_EVENT_NAME("StereolabsCameraFeedInjection"),
+			InView,
+			ViewPort,
+			ViewPort,
+			VertexShader,
+			PixelShader,
+			FCompositionDepthStencilState::GetRHI(),
+			PassParameters
+		);
 	}
-
-	// Get the properties required to be able to evaluate the volumetric fog in a composure pass
-	int32 VolumetricFogGridPixelSize;
-	const FIntVector VolumetricFogResourceGridSize = SlComp_GetVolumetricFogResourceGridSize(ViewInfo, VolumetricFogGridPixelSize);
-
-	VolumetricFogData->VolumetricFogStartDistance = ViewInfo.VolumetricFogStartDistance;
-	VolumetricFogData->VolumetricFogInvGridSize = FVector3f::OneVector / static_cast<FVector3f>(VolumetricFogResourceGridSize);
-	FVector ZParams = SlComp_GetVolumetricFogGridZParams(ViewInfo.VolumetricFogStartDistance, ViewInfo.NearClippingDistance, FogInfo.VolumetricFogDistance, VolumetricFogResourceGridSize.Z);
-	VolumetricFogData->VolumetricFogGridZParams = static_cast<FVector3f>(ZParams);
-	VolumetricFogData->VolumetricFogSVPosToVolumeUV = FVector2f::UnitVector / (FVector2f(VolumetricFogResourceGridSize.X, VolumetricFogResourceGridSize.Y) * VolumetricFogGridPixelSize);
-	VolumetricFogData->VolumetricFogUVMax = SlComp_GetVolumetricFogUVMaxForSampling(ViewInfo.ViewRect.Size(), VolumetricFogResourceGridSize, VolumetricFogGridPixelSize);
-	VolumetricFogData->OneOverPreExposure = 1.0f / ViewInfo.PreExposure;
 }

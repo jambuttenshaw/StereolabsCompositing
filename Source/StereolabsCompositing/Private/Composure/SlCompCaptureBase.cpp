@@ -26,3 +26,12 @@ FVolumetricFogRequiredData* AStereolabsCompositingCaptureBase::GetVolumetricFogD
 {
 	return VolumetricFogData_RenderThread.Get();
 }
+
+FStereolabsCameraTextures AStereolabsCompositingCaptureBase::GetCameraTextures()
+{
+	FStereolabsCameraTextures OutTextures;
+	OutTextures.ColorTexture = FindNamedRenderResult(CameraColorPassName);
+	OutTextures.DepthTexture = FindNamedRenderResult(CameraDepthPassName);
+	OutTextures.NormalsTexture = FindNamedRenderResult(CameraNormalsPassName);
+	return OutTextures;
+}
