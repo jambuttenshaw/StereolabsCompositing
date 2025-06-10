@@ -11,6 +11,8 @@ Texture2D<float4> CameraColorTexture;
 Texture2D<float4> CameraDepthTexture;
 Texture2D<float4> CameraNormalsTexture;
 
+float4x4 CameraLocalToWorld;
+
 // Parameters to customize how the lighting affects the camera image
 float AmbientMultiplier;
 float AlbedoMultiplier;
@@ -61,22 +63,24 @@ void InjectCameraFeedPS(
 	const float4 CameraDepthData = CameraDepthTexture.Sample(View.SharedBilinearClampedSampler, InUV);
 
 	const bool bDepthValid = CameraDepthData.a != 0;
-	const float DeviceZ = ConvertToDeviceZ(CameraDepthData.r);
 	if (!bDepthValid)
 	{
 		// No volume exists for this pixel
 		discard;
 	}
+	const float DeviceZ = ConvertToDeviceZ(CameraDepthData.r);
 
 	const float3 CameraColor = CameraColorTexture.Sample(View.SharedBilinearClampedSampler, InUV).rgb;
-	const float3 CameraNormals = CameraNormalsTexture.Sample(View.SharedBilinearClampedSampler, InUV).rgb;
-
 	float3 Albedo = CameraColor * AlbedoMultiplier;
 
+	float3 ViewSpaceNormal = normalize(CameraNormalsTexture.Sample(View.SharedBilinearClampedSampler, InUV).rgb);
+	float3 WorldSpaceNormal = mul(float4(ViewSpaceNormal, 0.0f), CameraLocalToWorld).rgb;
+
 	// Encode into GBuffer data
-	FGBufferData GBufferData = (FGBufferData) 0;
+	FGBufferData
+	GBufferData = (FGBufferData) 0;
 	GBufferData.Depth = DeviceZ;
-	GBufferData.WorldNormal = CameraNormals;
+	GBufferData.WorldNormal = WorldSpaceNormal;
 	GBufferData.DiffuseColor = Albedo;
 	GBufferData.SpecularColor = 0.0f;
 	GBufferData.BaseColor = Albedo;

@@ -94,7 +94,7 @@ void FSlCompViewExtension::ExtractVolumetricFog(FRDGBuilder& GraphBuilder, FScen
 	// Should be checked before calling
 	check(IsRenderingToSlCaptureActor(View));
 
-	FVolumetricFogRequiredData* VolumetricFogData = CaptureActor.Get()->GetVolumetricFogData();
+	FVolumetricFogRequiredDataProxy* VolumetricFogData = CaptureActor.Get()->GetVolumetricFogData();
 	FViewInfo& ViewInfo = static_cast<FViewInfo&>(View);
 
 	const FScene* Scene = static_cast<const FScene*>(View.Family->Scene);

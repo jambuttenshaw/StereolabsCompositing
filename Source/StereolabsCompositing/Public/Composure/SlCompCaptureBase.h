@@ -5,13 +5,13 @@
 #include "SlCompCaptureBase.generated.h"
 
 
-struct FVolumetricFogRequiredData;
+struct FVolumetricFogRequiredDataProxy;
 
-struct FStereolabsCameraTextures
+struct FStereolabsCameraTexturesProxy
 {
-	UTexture* ColorTexture;
-	UTexture* DepthTexture;
-	UTexture* NormalsTexture;
+	UTexture* ColorTexture   = nullptr;
+	UTexture* DepthTexture   = nullptr;
+	UTexture* NormalsTexture = nullptr;
 };
 
 
@@ -26,11 +26,6 @@ class STEREOLABSCOMPOSITING_API AStereolabsCompositingCaptureBase : public AComp
 public:
 	AStereolabsCompositingCaptureBase();
 
-	const FVolumetricFogRequiredData* GetVolumetricFogData() const;
-
-	FStereolabsCameraTextures GetCameraTextures();
-
-public:
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Composure|Injection")
 	bool bInjectionMode = false;
@@ -59,13 +54,28 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Composure|Injection|Lighting", meta=(EditCondition="bInjectionMode", ClampMin = "0.0", ClampMax = "1.0"))
 	float SpecularOverride = 0.0f;
 
+
+public:
+
+	// Only dereference on render thread!
+	// TODO: Return reference type instead of pointer type - the struct itself will always exist
+	const FVolumetricFogRequiredDataProxy* GetVolumetricFogData() const;
+
+	const FStereolabsCameraTexturesProxy& GetCameraTextures_RenderThread() const;
+	FTransform GetCameraTransform() const;
+
+	UFUNCTION(BlueprintCallable, Category="Composure|Stereolabs Compositing", CallInEditor)
+	void FetchLatestCameraTextures_GameThread();
+
 protected:
-	FVolumetricFogRequiredData* GetVolumetricFogData();
+	FVolumetricFogRequiredDataProxy* GetVolumetricFogData();
 
 	// Rendering resources extracted from the scene renderer for use in composition
 	// This layer provides a place to keep these resources safe and reference them in later Composure passes,
 	// after the scene rendering has been completed
-	TSharedPtr<struct FVolumetricFogRequiredData> VolumetricFogData_RenderThread;
+	TSharedPtr<struct FVolumetricFogRequiredDataProxy> VolumetricFogData_RenderThread;
+
+	FStereolabsCameraTexturesProxy CameraTextures_RenderThread;
 
 private:
 	TSharedPtr<class FSlCompViewExtension, ESPMode::ThreadSafe> SlCompViewExtension;

@@ -21,7 +21,7 @@ struct FDepthProcessingParametersProxy
 
 
 // Resources and parameters extracted from the scene render graph to be able to apply volumetric fog in composure
-struct FVolumetricFogRequiredData
+struct FVolumetricFogRequiredDataProxy
 {
 	// Resources
 	TRefCountPtr<IPooledRenderTarget> IntegratedLightScatteringTexture;
@@ -46,7 +46,7 @@ struct FVolumetricsCompositionParametersProxy
 {
 	UTexture* CameraDepthTexture;
 
-	const FVolumetricFogRequiredData* VolumetricFogData;
+	const FVolumetricFogRequiredDataProxy* VolumetricFogData;
 
 	bool IsValid() const
 	{

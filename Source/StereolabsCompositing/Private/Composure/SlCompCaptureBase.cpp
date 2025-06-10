@@ -2,6 +2,7 @@
 
 #include "SceneViewExtension.h"
 #include "SlCompViewExtension.h"
+#include "Components/SceneCaptureComponent2D.h"
 
 #include "Pipelines/SlCompPipelines.h"
 
@@ -12,26 +13,57 @@ AStereolabsCompositingCaptureBase::AStereolabsCompositingCaptureBase()
 
 	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
-		SlCompViewExtension = FSceneViewExtensions::NewExtension<FSlCompViewExtension>(this);
-		VolumetricFogData_RenderThread = MakeShared<FVolumetricFogRequiredData>();
+		SlCompViewExtension = MakeShared<FSlCompViewExtension>(this);
+		SceneCaptureComponent2D->SceneViewExtensions.Add(SlCompViewExtension);
+
+		VolumetricFogData_RenderThread = MakeShared<FVolumetricFogRequiredDataProxy>();
 	}
 }
 
-const FVolumetricFogRequiredData* AStereolabsCompositingCaptureBase::GetVolumetricFogData() const
+const FVolumetricFogRequiredDataProxy* AStereolabsCompositingCaptureBase::GetVolumetricFogData() const
 {
 	return VolumetricFogData_RenderThread.Get();
 }
 
-FVolumetricFogRequiredData* AStereolabsCompositingCaptureBase::GetVolumetricFogData()
+FVolumetricFogRequiredDataProxy* AStereolabsCompositingCaptureBase::GetVolumetricFogData()
 {
 	return VolumetricFogData_RenderThread.Get();
 }
 
-FStereolabsCameraTextures AStereolabsCompositingCaptureBase::GetCameraTextures()
+void AStereolabsCompositingCaptureBase::FetchLatestCameraTextures_GameThread()
 {
-	FStereolabsCameraTextures OutTextures;
-	OutTextures.ColorTexture = FindNamedRenderResult(CameraColorPassName);
-	OutTextures.DepthTexture = FindNamedRenderResult(CameraDepthPassName);
-	OutTextures.NormalsTexture = FindNamedRenderResult(CameraNormalsPassName);
-	return OutTextures;
+	check(!IsInRenderingThread());
+
+	FStereolabsCameraTexturesProxy Textures;
+	Textures.ColorTexture = FindNamedRenderResult(CameraColorPassName);
+	Textures.DepthTexture = FindNamedRenderResult(CameraDepthPassName);
+	Textures.NormalsTexture = FindNamedRenderResult(CameraNormalsPassName);
+
+	ENQUEUE_RENDER_COMMAND(UpdateCameraTextures)(
+	[this, TempTextures = MoveTemp(Textures)](FRHICommandListImmediate&)
+	{
+		CameraTextures_RenderThread = TempTextures;
+	});
 }
+
+const FStereolabsCameraTexturesProxy& AStereolabsCompositingCaptureBase::GetCameraTextures_RenderThread() const
+{
+	check(IsInRenderingThread());
+	return CameraTextures_RenderThread;
+}
+
+FTransform AStereolabsCompositingCaptureBase::GetCameraTransform() const
+{
+	FTransform OutTransform;
+
+	if (SceneCaptureComponent2D)
+	{
+		FMinimalViewInfo CameraView;
+		SceneCaptureComponent2D->GetCameraView(0.0f, CameraView);
+		OutTransform.SetRotation(CameraView.Rotation.Quaternion());
+		OutTransform.SetTranslation(CameraView.Location);
+	}
+
+	return OutTransform;
+}
+

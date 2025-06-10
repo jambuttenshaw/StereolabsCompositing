@@ -21,6 +21,8 @@ class FCameraFeedInjectionPS : public FGlobalShader
 		SHADER_PARAMETER_TEXTURE(Texture2D<float4>, CameraDepthTexture) 
 		SHADER_PARAMETER_TEXTURE(Texture2D<float4>, CameraNormalsTexture)
 
+		SHADER_PARAMETER(FMatrix44f, CameraLocalToWorld)
+
 		SHADER_PARAMETER(float, AlbedoMultiplier)
 		SHADER_PARAMETER(float, AmbientMultiplier)
 
@@ -49,11 +51,11 @@ class FCameraFeedInjectionPS : public FGlobalShader
 IMPLEMENT_GLOBAL_SHADER(FCameraFeedInjectionPS, "/Plugin/StereolabsCompositing/CameraFeedInjection.usf", "InjectCameraFeedPS", SF_Pixel)
 
 
-FSlCompViewExtension::FSlCompViewExtension(const FAutoRegister& AutoRegister, AStereolabsCompositingCaptureBase* Owner)
-	: FSceneViewExtensionBase(AutoRegister)
-	, CaptureActor(Owner)
+FSlCompViewExtension::FSlCompViewExtension(AStereolabsCompositingCaptureBase* Owner)
+	: CaptureActor(Owner)
 {
 }
+
 
 bool FSlCompViewExtension::IsRenderingToSlCaptureActor(const FSceneView& View) const
 {
@@ -97,7 +99,7 @@ void FSlCompViewExtension::InjectCameraFeed(FRDGBuilder& GraphBuilder, FSceneVie
 
 	// Get camera images and insert them into GBuffer
 	// Some of these textures may be nullptr, must check for that later
-	FStereolabsCameraTextures CameraTextures = CaptureActor->GetCameraTextures();
+	const FStereolabsCameraTexturesProxy& CameraTextures = CaptureActor->GetCameraTextures_RenderThread();
 
 	bool bAllValid = CameraTextures.ColorTexture != nullptr
 		&& CameraTextures.DepthTexture != nullptr
@@ -116,6 +118,9 @@ void FSlCompViewExtension::InjectCameraFeed(FRDGBuilder& GraphBuilder, FSceneVie
 		PassParameters->CameraColorTexture = CameraTextures.ColorTexture->GetResource()->TextureRHI;
 		PassParameters->CameraDepthTexture = CameraTextures.DepthTexture->GetResource()->TextureRHI;
 		PassParameters->CameraNormalsTexture = CameraTextures.NormalsTexture->GetResource()->TextureRHI;
+
+		FTransform CameraTransform = CaptureActor->GetCameraTransform();
+		PassParameters->CameraLocalToWorld = static_cast<FMatrix44f>(CameraTransform.ToMatrixNoScale());
 
 		PassParameters->AmbientMultiplier = CaptureActor->AmbientMultiplier;
 		PassParameters->AlbedoMultiplier = CaptureActor->AlbedoMultiplier;

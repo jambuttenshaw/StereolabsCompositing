@@ -6,10 +6,10 @@
 class AStereolabsCompositingCaptureBase;
 
 
-class FSlCompViewExtension : public FSceneViewExtensionBase
+class FSlCompViewExtension : public ISceneViewExtension
 {
 public:
-	FSlCompViewExtension(const FAutoRegister& AutoRegister, AStereolabsCompositingCaptureBase* Owner);
+	FSlCompViewExtension(AStereolabsCompositingCaptureBase* Owner);
 
 	//~ Begin FSceneViewExtensionBase Interface
 	virtual void SetupViewFamily(FSceneViewFamily& InViewFamily) override {};
