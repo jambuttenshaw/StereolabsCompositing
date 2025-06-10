@@ -54,22 +54,23 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Composure|Injection|Lighting", meta=(EditCondition="bInjectionMode", ClampMin = "0.0", ClampMax = "1.0"))
 	float SpecularOverride = 0.0f;
 
-
 public:
 
 	// Only dereference on render thread!
 	// TODO: Return reference type instead of pointer type - the struct itself will always exist
 	const FVolumetricFogRequiredDataProxy* GetVolumetricFogData() const;
+protected:
+	FVolumetricFogRequiredDataProxy* GetVolumetricFogData();
 
+public:
 	const FStereolabsCameraTexturesProxy& GetCameraTextures_RenderThread() const;
 	FTransform GetCameraTransform() const;
 
+	// Call this in GenerateInputs before rendering the scene capture
 	UFUNCTION(BlueprintCallable, Category="Composure|Stereolabs Compositing", CallInEditor)
 	void FetchLatestCameraTextures_GameThread();
 
 protected:
-	FVolumetricFogRequiredDataProxy* GetVolumetricFogData();
-
 	// Rendering resources extracted from the scene renderer for use in composition
 	// This layer provides a place to keep these resources safe and reference them in later Composure passes,
 	// after the scene rendering has been completed

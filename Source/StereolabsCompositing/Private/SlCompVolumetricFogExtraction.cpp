@@ -91,8 +91,7 @@ FIntVector SlComp_GetVolumetricFogResourceGridSize(const FViewInfo& View, int32&
 
 void FSlCompViewExtension::ExtractVolumetricFog(FRDGBuilder& GraphBuilder, FSceneView& View) const
 {
-	// Should be checked before calling
-	check(IsRenderingToSlCaptureActor(View));
+	check(View.bIsSceneCapture && View.bIsViewInfo && CaptureActor.IsValid());
 
 	FVolumetricFogRequiredDataProxy* VolumetricFogData = CaptureActor.Get()->GetVolumetricFogData();
 	FViewInfo& ViewInfo = static_cast<FViewInfo&>(View);

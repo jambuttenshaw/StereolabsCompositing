@@ -54,35 +54,23 @@ IMPLEMENT_GLOBAL_SHADER(FCameraFeedInjectionPS, "/Plugin/StereolabsCompositing/C
 FSlCompViewExtension::FSlCompViewExtension(AStereolabsCompositingCaptureBase* Owner)
 	: CaptureActor(Owner)
 {
-}
-
-
-bool FSlCompViewExtension::IsRenderingToSlCaptureActor(const FSceneView& View) const
-{
-	return View.bIsSceneCapture && View.bIsViewInfo && CaptureActor.IsValid();
+	check(Owner);
 }
 
 
 void FSlCompViewExtension::PostRenderBasePassDeferred_RenderThread(FRDGBuilder& GraphBuilder, FSceneView& InView, const FRenderTargetBindingSlots& RenderTargets, TRDGUniformBufferRef<FSceneTextureUniformParameters> SceneTextures)
 {
-	if (!IsRenderingToSlCaptureActor(InView))
-	{
-		return;
-	}
+	check(InView.bIsSceneCapture && InView.bIsViewInfo && CaptureActor.IsValid());
 
 	if (CaptureActor->bInjectionMode)
 	{
-		InjectCameraFeed(GraphBuilder, InView, RenderTargets, SceneTextures);
+		InjectCameraFeed(GraphBuilder, InView);
 	}
 }
 
 void FSlCompViewExtension::PostRenderView_RenderThread(FRDGBuilder& GraphBuilder, FSceneView& View)
 {
-	// Make sure this is only active when rendering to a SlCompCaptureBase
-	if (!IsRenderingToSlCaptureActor(View))
-	{
-		return;
-	}
+	check(View.bIsSceneCapture && View.bIsViewInfo && CaptureActor.IsValid());
 
 	if (!CaptureActor->bInjectionMode || CaptureActor->bExtractVolumetricFogInInjectionMode)
 	{
@@ -91,11 +79,10 @@ void FSlCompViewExtension::PostRenderView_RenderThread(FRDGBuilder& GraphBuilder
 }
 
 
-void FSlCompViewExtension::InjectCameraFeed(FRDGBuilder& GraphBuilder, FSceneView& InView, const FRenderTargetBindingSlots& RenderTargets, TRDGUniformBufferRef<FSceneTextureUniformParameters> SceneTextures) const
+void FSlCompViewExtension::InjectCameraFeed(FRDGBuilder& GraphBuilder, FSceneView& InView) const
 {
-	// Should be checked prior to calling
-	check(IsRenderingToSlCaptureActor(InView))
-	FViewInfo& ViewInfo = static_cast<FViewInfo&>(InView); // We checked earlier that InView is a FViewInfo
+	check(InView.bIsSceneCapture && InView.bIsViewInfo && CaptureActor.IsValid());
+	FViewInfo& ViewInfo = static_cast<FViewInfo&>(InView);
 
 	// Get camera images and insert them into GBuffer
 	// Some of these textures may be nullptr, must check for that later
