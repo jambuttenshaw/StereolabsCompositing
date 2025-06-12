@@ -51,19 +51,3 @@ const FStereolabsCameraTexturesProxy& AStereolabsCompositingCaptureBase::GetCame
 	check(IsInRenderingThread());
 	return CameraTextures_RenderThread;
 }
-
-FTransform AStereolabsCompositingCaptureBase::GetCameraTransform() const
-{
-	FTransform OutTransform;
-
-	if (SceneCaptureComponent2D)
-	{
-		FMinimalViewInfo CameraView;
-		SceneCaptureComponent2D->GetCameraView(0.0f, CameraView);
-		OutTransform.SetRotation(CameraView.Rotation.Quaternion());
-		OutTransform.SetTranslation(CameraView.Location);
-	}
-
-	return OutTransform;
-}
-

@@ -91,6 +91,7 @@ class FDepthClippingPS : public FGlobalShader
 		SHADER_PARAMETER_SAMPLER(SamplerState, sampler0)
 
 		SHADER_PARAMETER(FMatrix44f, InvCameraProjectionMatrix)
+		SHADER_PARAMETER(float, CameraNearClippingPlane)
 		SHADER_PARAMETER(int32, bEnableFarClipping)
 		SHADER_PARAMETER(float, FarClipDistance)
 		SHADER_PARAMETER(int32, bEnableClippingPlane)
@@ -104,6 +105,26 @@ class FDepthClippingPS : public FGlobalShader
 
 IMPLEMENT_GLOBAL_SHADER(FDepthClippingPS, "/Plugin/StereolabsCompositing/DepthProcessing.usf", "DepthClipPS", SF_Pixel);
 
+
+class FVisualizeDepthPS : public FGlobalShader
+{
+	DECLARE_GLOBAL_SHADER(FVisualizeDepthPS)
+	SHADER_USE_PARAMETER_STRUCT(FVisualizeDepthPS, FGlobalShader)
+
+	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
+		SHADER_PARAMETER_STRUCT(FScreenPassTextureViewportParameters, OutViewPort)
+		SHADER_PARAMETER_STRUCT(FScreenPassTextureViewportParameters, InViewPort)
+		SHADER_PARAMETER_SAMPLER(SamplerState, sampler0)
+
+		SHADER_PARAMETER(FVector2f, DepthRange)
+
+		SHADER_PARAMETER_RDG_TEXTURE_SRV(Texture2D<float4>, InTex)
+
+		RENDER_TARGET_BINDING_SLOTS()
+	END_SHADER_PARAMETER_STRUCT()
+};
+
+IMPLEMENT_GLOBAL_SHADER(FVisualizeDepthPS, "/Plugin/StereolabsCompositing/DepthProcessing.usf", "VisualizeDepthPS", SF_Pixel);
 
 
 void StereolabsCompositing::ExecuteDepthProcessingPipeline(
@@ -166,12 +187,31 @@ void StereolabsCompositing::ExecuteDepthProcessingPipeline(
 		[&](auto PassParameters)
 		{
 			PassParameters->InvCameraProjectionMatrix = Parameters.InvProjectionMatrix;
+			PassParameters->CameraNearClippingPlane = Parameters.CameraNearClippingPlane;
 			PassParameters->bEnableFarClipping = Parameters.bEnableFarClipping;
 			PassParameters->FarClipDistance = Parameters.FarClipDistance;
 			PassParameters->bEnableClippingPlane = Parameters.bEnableClippingPlane;
 			PassParameters->UserClippingPlane = Parameters.UserClippingPlane;
 
 			PassParameters->InTex = GraphBuilder.CreateSRV(TempTexture1);
+		}
+	);
+}
+
+
+void StereolabsCompositing::VisualizeProcessedDepth(FRDGBuilder& GraphBuilder, FVector2f VisualizeRange, FRDGTextureRef ProcessedDepthTexture, FRDGTextureRef OutTexture)
+{
+	check(IsInRenderingThread());
+
+	StereolabsCompositing::AddPass<FVisualizeDepthPS>(
+		GraphBuilder,
+		RDG_EVENT_NAME("VisualizeDepth"),
+		OutTexture,
+		[&](auto PassParameters)
+		{
+			PassParameters->DepthRange = VisualizeRange;
+
+			PassParameters->InTex = GraphBuilder.CreateSRV(ProcessedDepthTexture);
 		}
 	);
 }

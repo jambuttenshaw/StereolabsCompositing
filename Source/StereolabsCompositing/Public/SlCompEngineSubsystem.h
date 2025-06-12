@@ -54,6 +54,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	const FMatrix& GetInvProjectionMatrix();
 
+	UFUNCTION(BlueprintCallable)
+	inline float GetNearClippingPlane() { return NearClippingPlane;}
+
 private:
 	/** Current batch */
 	UPROPERTY()
@@ -68,6 +71,8 @@ private:
 	USlTexture* NormalTexture = nullptr;
 
 	bool bCanEverTick = false;
+
+	float NearClippingPlane = 10.0f;
 
 	FMatrix CameraProjectionMatrix;
 	FMatrix InvCameraProjectionMatrix;

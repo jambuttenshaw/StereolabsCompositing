@@ -63,12 +63,11 @@ protected:
 	FVolumetricFogRequiredDataProxy* GetVolumetricFogData();
 
 public:
-	const FStereolabsCameraTexturesProxy& GetCameraTextures_RenderThread() const;
-	FTransform GetCameraTransform() const;
-
 	// Call this in GenerateInputs before rendering the scene capture
 	UFUNCTION(BlueprintCallable, Category="Composure|Stereolabs Compositing", CallInEditor)
 	void FetchLatestCameraTextures_GameThread();
+
+	const FStereolabsCameraTexturesProxy& GetCameraTextures_RenderThread() const;
 
 protected:
 	// Rendering resources extracted from the scene renderer for use in composition

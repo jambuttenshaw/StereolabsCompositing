@@ -113,7 +113,7 @@ void USlCompEngineSubsystem::OnCameraOpened()
 	// In practice camera cannot calculate depth at distances <~30cm, so setting near plane to any value below this is adequate
 	const float HalfFovX = 0.5f * FMath::DegreesToRadians(CameraParameters.HFOV);
 	const float HalfFovY = 0.5f * FMath::DegreesToRadians(CameraParameters.VFOV);
-	CameraProjectionMatrix = FReversedZPerspectiveMatrix(HalfFovX, HalfFovY, 1.0f, 1.0f, 10.0f, 10.0f);
+	CameraProjectionMatrix = FReversedZPerspectiveMatrix(HalfFovX, HalfFovY, 1.0f, 1.0f, NearClippingPlane, NearClippingPlane);
 	InvCameraProjectionMatrix = CameraProjectionMatrix.Inverse();
 }
 

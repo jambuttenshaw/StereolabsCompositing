@@ -34,7 +34,8 @@ public:
 
 private:
 
-	void InjectCameraFeed(FRDGBuilder& GraphBuilder, FSceneView& InView) const;
+
+	void InjectCameraFeed(FRDGBuilder& GraphBuilder, FSceneView& View) const;
 	// Implemented in SlCompVolumetricFogExtraction.cpp
 	void ExtractVolumetricFog(FRDGBuilder& GraphBuilder, FSceneView& View) const;
 

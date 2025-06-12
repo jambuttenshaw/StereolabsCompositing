@@ -89,6 +89,7 @@ float4 JacobiStepPS(
 
 // Camera matrix of Stereolabs camera to project into view space - to compare against planes
 float4x4 InvCameraProjectionMatrix;
+float CameraNearClippingPlane;
 // All depth values beyond this distance will be clipped
 int bEnableFarClipping;
 float FarClipDistance;
@@ -119,7 +120,7 @@ float4 DepthClipPS(
 	float2 NDCSpacePos = (InUV - 0.5f) * 2.0f * float2(1, -1);
 
 	float4 PosOnNearPlane = mul(float4(NDCSpacePos, 1, 1), InvCameraProjectionMatrix);
-	float3 DirToNearPlane = (PosOnNearPlane.xyz /= PosOnNearPlane.w) / 10.0f; // 10 = near clip
+	float3 DirToNearPlane = PosOnNearPlane.xyz / (PosOnNearPlane.w * CameraNearClippingPlane);
 
 	float3 ViewSpacePos = DirToNearPlane * D.x;
 
@@ -131,4 +132,25 @@ float4 DepthClipPS(
 
 	// NOTE: Clipped pixels (with D.w == 0) still keep their original depth value - this prevents artefacts in case of sampling the depth texture with bilinear filtering
 	return D;
+}
+
+
+float2 DepthRange;
+
+
+float4 VisualizeDepthPS(
+	float2 InUV : TEXCOORD0
+) : SV_Target0
+{
+	float4 Depth = InTex.Sample(sampler0, InUV);
+	float DepthValue = Depth.r;
+	bool bDepthValid = Depth.a != 0.0f;
+
+	if (!bDepthValid)
+	{
+		return float4(1, 0, 1, 1);
+	}
+
+	float MappedDepth = saturate((DepthValue - DepthRange.x) / (DepthRange.y - DepthRange.x));
+	return float4(MappedDepth.xxx, 1);
 }

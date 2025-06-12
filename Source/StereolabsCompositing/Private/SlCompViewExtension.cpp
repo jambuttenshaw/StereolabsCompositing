@@ -5,11 +5,18 @@
 
 #include "RenderGraphBuilder.h"
 #include "SceneRendering.h"
+#include "SlCompEngineSubsystem.h"
+#include "Components/SceneCaptureComponent2D.h"
+#include "Pipelines/SlCompPipelines.h"
+
 
 class FCameraFeedInjectionPS : public FGlobalShader
 {
 	DECLARE_GLOBAL_SHADER(FCameraFeedInjectionPS);
 	SHADER_USE_PARAMETER_STRUCT(FCameraFeedInjectionPS, FGlobalShader)
+
+	class FColorSourceDepthCamera : SHADER_PERMUTATION_BOOL("COlOR_SOURCE_DEPTH_CAMERA");
+	using FPermutationDomain = TShaderPermutationDomain<FColorSourceDepthCamera>;
 
 	BEGIN_SHADER_PARAMETER_STRUCT(FParameters,)
 		SHADER_PARAMETER_STRUCT_REF(FViewUniformShaderParameters, View)
@@ -21,7 +28,14 @@ class FCameraFeedInjectionPS : public FGlobalShader
 		SHADER_PARAMETER_TEXTURE(Texture2D<float4>, CameraDepthTexture) 
 		SHADER_PARAMETER_TEXTURE(Texture2D<float4>, CameraNormalsTexture)
 
-		SHADER_PARAMETER(FMatrix44f, CameraLocalToWorld)
+		SHADER_PARAMETER_RDG_TEXTURE_SRV(Texture2D<float2>, ReprojectionUVMap)
+
+		SHADER_PARAMETER(FMatrix44f, VirtualCameraLocalToWorld)
+		SHADER_PARAMETER(FMatrix44f, VirtualCameraViewToNDC)
+		SHADER_PARAMETER(FMatrix44f, VirtualCameraNDCToView)
+
+		SHADER_PARAMETER(FMatrix44f, DepthCameraViewToNDC)
+		SHADER_PARAMETER(FMatrix44f, DepthCameraNDCToView)
 
 		SHADER_PARAMETER(float, AlbedoMultiplier)
 		SHADER_PARAMETER(float, AmbientMultiplier)
@@ -79,10 +93,10 @@ void FSlCompViewExtension::PostRenderView_RenderThread(FRDGBuilder& GraphBuilder
 }
 
 
-void FSlCompViewExtension::InjectCameraFeed(FRDGBuilder& GraphBuilder, FSceneView& InView) const
+void FSlCompViewExtension::InjectCameraFeed(FRDGBuilder& GraphBuilder, FSceneView& View) const
 {
-	check(InView.bIsSceneCapture && InView.bIsViewInfo && CaptureActor.IsValid());
-	FViewInfo& ViewInfo = static_cast<FViewInfo&>(InView);
+	check(View.bIsSceneCapture && View.bIsViewInfo && CaptureActor.IsValid());
+	FViewInfo& ViewInfo = static_cast<FViewInfo&>(View);
 
 	// Get camera images and insert them into GBuffer
 	// Some of these textures may be nullptr, must check for that later
@@ -97,17 +111,61 @@ void FSlCompViewExtension::InjectCameraFeed(FRDGBuilder& GraphBuilder, FSceneVie
 		return;
 	}
 
+	FRDGTextureRef ReprojectionUVMap;
+	{
+		FMinimalViewInfo VirtualCameraView;
+		if (CaptureActor->TargetCameraActorPtr.IsValid())
+		{
+			CaptureActor->TargetCameraActorPtr->GetCameraComponent()->GetCameraView(0.0f, VirtualCameraView);
+		}
+		else
+		{
+			CaptureActor->SceneCaptureComponent2D->GetCameraView(0.0f, VirtualCameraView);
+		}
+		FIntPoint TextureExtent = {
+			static_cast<int32>(CameraTextures.DepthTexture->GetResource()->GetSizeX()),
+			static_cast<int32>(CameraTextures.DepthTexture->GetResource()->GetSizeY())
+		};
+
+		ReprojectionUVMap = StereolabsCompositing::CreateReprojectionUVMap(
+			GraphBuilder,
+			VirtualCameraView,
+			TextureExtent
+		);
+	}
+
 	{
 		FCameraFeedInjectionPS::FParameters* PassParameters = GraphBuilder.AllocParameters<FCameraFeedInjectionPS::FParameters>();
 
-		PassParameters->View = InView.ViewUniformBuffer;
+		PassParameters->View = View.ViewUniformBuffer;
 
 		PassParameters->CameraColorTexture = CameraTextures.ColorTexture->GetResource()->TextureRHI;
 		PassParameters->CameraDepthTexture = CameraTextures.DepthTexture->GetResource()->TextureRHI;
 		PassParameters->CameraNormalsTexture = CameraTextures.NormalsTexture->GetResource()->TextureRHI;
 
-		FTransform CameraTransform = CaptureActor->GetCameraTransform();
-		PassParameters->CameraLocalToWorld = static_cast<FMatrix44f>(CameraTransform.ToMatrixNoScale());
+		PassParameters->ReprojectionUVMap = GraphBuilder.CreateSRV(ReprojectionUVMap);
+
+		// Get virtual camera properties (which will match the film camera if one is in use)
+		{
+			FMinimalViewInfo CameraView;
+			CaptureActor->SceneCaptureComponent2D->GetCameraView(0.0f, CameraView);
+
+			FTransform CameraTransform;
+			CameraTransform.SetRotation(CameraView.Rotation.Quaternion());
+			CameraTransform.SetTranslation(CameraView.Location);
+			PassParameters->VirtualCameraLocalToWorld = static_cast<FMatrix44f>(CameraTransform.ToMatrixNoScale());
+
+			FMatrix CameraProjectionMatrix = CameraView.CalculateProjectionMatrix();
+			PassParameters->VirtualCameraViewToNDC = static_cast<FMatrix44f>(CameraProjectionMatrix);
+			PassParameters->VirtualCameraNDCToView = static_cast<FMatrix44f>(CameraProjectionMatrix.Inverse());
+		}
+
+		// Get physical depth camera properties
+		{
+			USlCompEngineSubsystem* Subsystem = GEngine->GetEngineSubsystem<USlCompEngineSubsystem>();
+			PassParameters->DepthCameraViewToNDC = static_cast<FMatrix44f>(Subsystem->GetProjectionMatrix());
+			PassParameters->DepthCameraNDCToView = static_cast<FMatrix44f>(Subsystem->GetInvProjectionMatrix());
+		}
 
 		PassParameters->AmbientMultiplier = CaptureActor->AmbientMultiplier;
 		PassParameters->AlbedoMultiplier = CaptureActor->AlbedoMultiplier;
@@ -130,10 +188,12 @@ void FSlCompViewExtension::InjectCameraFeed(FRDGBuilder& GraphBuilder, FSceneVie
 			ERenderTargetLoadAction::ENoAction, FExclusiveDepthStencil::DepthWrite_StencilNop 
 		);
 
-		FGlobalShaderMap* ShaderMap = GetGlobalShaderMap(InView.FeatureLevel);
-
+		FGlobalShaderMap* ShaderMap = GetGlobalShaderMap(View.FeatureLevel);
 		TShaderMapRef<FScreenPassVS> VertexShader(ShaderMap);
-		TShaderMapRef<FCameraFeedInjectionPS> PixelShader(ShaderMap);
+
+		FCameraFeedInjectionPS::FPermutationDomain Permutation;
+		Permutation.Set<FCameraFeedInjectionPS::FColorSourceDepthCamera>(true);
+		TShaderMapRef<FCameraFeedInjectionPS> PixelShader(ShaderMap, Permutation);
 
 		FScreenPassTextureViewport ViewPort(ViewInfo.ViewRect.Size());
 
@@ -145,7 +205,7 @@ void FSlCompViewExtension::InjectCameraFeed(FRDGBuilder& GraphBuilder, FSceneVie
 		AddDrawScreenPass(
 			GraphBuilder,
 			RDG_EVENT_NAME("StereolabsCameraFeedInjection"),
-			InView,
+			View,
 			ViewPort,
 			ViewPort,
 			VertexShader,

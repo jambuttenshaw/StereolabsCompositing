@@ -87,3 +87,30 @@ public:
 	virtual UTexture* ApplyTransform_Implementation(UTexture* Input, UComposurePostProcessingPassProxy* PostProcessProxy, ACameraActor* TargetCamera) override;
 
 };
+
+
+/**
+ * To be able to preview the depth image directly in the preview window
+ */
+UCLASS(BlueprintType, Blueprintable)
+class STEREOLABSCOMPOSITING_API UCompositingStereolabsDepthPreviewPass : public UCompositingElementTransform
+{
+	GENERATED_BODY()
+
+public:
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Compositing Pass", meta = (DisplayAfter = "PassName", EditCondition = "bEnabled", ClampMin="0"))
+	FVector2D VisualizeDepthRange = { 0, 1000 };
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Compositing Pass", meta = (DisplayAfter = "PassName", EditCondition = "bEnabled"))
+	bool bVisualizeReprojectionUVMap = true;
+
+public:
+	virtual UTexture* ApplyTransform_Implementation(UTexture* Input, UComposurePostProcessingPassProxy* PostProcessProxy, ACameraActor* TargetCamera) override;
+
+private:
+
+	void ApplyVisualizeDepth(UTexture* Input, UTextureRenderTarget2D* RenderTarget) const;
+	void ApplyVisualizeReprojectionUVMap(UTexture* Input, UTextureRenderTarget2D* RenderTarget, ACameraActor* TargetCamera) const;
+
+};

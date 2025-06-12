@@ -32,6 +32,7 @@ UTexture* UCompositingStereolabsDepthProcessingPass::ApplyTransform_Implementati
 
 	auto Subsystem = GEngine->GetEngineSubsystem<USlCompEngineSubsystem>();
 	Params.InvProjectionMatrix = FMatrix44f(Subsystem->GetInvProjectionMatrix());
+	Params.CameraNearClippingPlane = Subsystem->GetNearClippingPlane();
 
 	Params.bEnableJacobiSteps = bEnableJacobi;
 	Params.NumJacobiSteps = NumJacobiSteps;
@@ -136,9 +137,9 @@ UTexture* UCompositingStereolabsVolumetricsPass::ApplyTransform_Implementation(U
 }
 
 
-///////////////////////////////////////////
-// UCompositingStereolabsVolumetricsPass //
-///////////////////////////////////////////
+//////////////////////////////////////////
+// UCompositingStereolabsRelightingPass //
+//////////////////////////////////////////
 
 
 UTexture* UCompositingStereolabsRelightingPass::ApplyTransform_Implementation(UTexture* Input, UComposurePostProcessingPassProxy* PostProcessProxy, ACameraActor* TargetCamera)
@@ -200,4 +201,97 @@ UTexture* UCompositingStereolabsRelightingPass::ApplyTransform_Implementation(UT
 		});
 
 	return RenderTarget;
+}
+
+
+////////////////////////////////////////////
+// UCompositingStereolabsDepthPreviewPass //
+////////////////////////////////////////////
+
+
+UTexture* UCompositingStereolabsDepthPreviewPass::ApplyTransform_Implementation(UTexture* Input, UComposurePostProcessingPassProxy* PostProcessProxy, ACameraActor* TargetCamera)
+{
+	if (!Input)
+		return Input;
+	check(Input->GetResource());
+
+	if (!TargetCamera || !TargetCamera->GetCameraComponent())
+		return Input;
+
+	FIntPoint Dims;
+	Dims.X = Input->GetResource()->GetSizeX();
+	Dims.Y = Input->GetResource()->GetSizeY();
+
+	UTextureRenderTarget2D* RenderTarget = RequestRenderTarget(Dims, PF_FloatRGBA);
+	if (!(RenderTarget && RenderTarget->GetResource()))
+		return Input;
+
+	if (bVisualizeReprojectionUVMap)
+	{
+		ApplyVisualizeReprojectionUVMap(Input, RenderTarget, TargetCamera);
+	}
+	else
+	{
+		ApplyVisualizeDepth(Input, RenderTarget);
+	}
+
+	return RenderTarget;
+}
+
+void UCompositingStereolabsDepthPreviewPass::ApplyVisualizeDepth(UTexture* Input, UTextureRenderTarget2D* RenderTarget) const
+{
+	ENQUEUE_RENDER_COMMAND(ApplyDepthPreviewPass)(
+		[DepthRange = VisualizeDepthRange, InputResource = Input->GetResource(), OutputResource = RenderTarget->GetResource()]
+		(FRHICommandListImmediate& RHICmdList)
+		{
+			FRDGBuilder GraphBuilder(RHICmdList);
+
+			TRefCountPtr<IPooledRenderTarget> InputRT = CreateRenderTarget(InputResource->GetTextureRHI(), TEXT("StereolabsDepthPreviewPass.Input"));
+			TRefCountPtr<IPooledRenderTarget> OutputRT = CreateRenderTarget(OutputResource->GetTextureRHI(), TEXT("StereolabsDepthPreviewPass.Output"));
+			FRDGTextureRef InTexture = GraphBuilder.RegisterExternalTexture(InputRT);
+			FRDGTextureRef OutTexture = GraphBuilder.RegisterExternalTexture(OutputRT);
+
+			StereolabsCompositing::VisualizeProcessedDepth(
+				GraphBuilder,
+				static_cast<FVector2f>(DepthRange),
+				InTexture,
+				OutTexture
+			);
+
+			GraphBuilder.Execute();
+		});
+}
+
+void UCompositingStereolabsDepthPreviewPass::ApplyVisualizeReprojectionUVMap(UTexture* Input, UTextureRenderTarget2D* RenderTarget, ACameraActor* TargetCamera) const
+{
+	ENQUEUE_RENDER_COMMAND(ApplyReprojectionUVMapPreviewPass)(
+		[TargetCamera, InputResource = Input->GetResource(), OutputResource = RenderTarget->GetResource()]
+		(FRHICommandListImmediate& RHICmdList)
+		{
+			FRDGBuilder GraphBuilder(RHICmdList);
+
+			TRefCountPtr<IPooledRenderTarget> OutputRT = CreateRenderTarget(OutputResource->GetTextureRHI(), TEXT("StereolabsDepthPreviewPass.Output"));
+			FRDGTextureRef OutTexture = GraphBuilder.RegisterExternalTexture(OutputRT);
+
+			FMinimalViewInfo VirtualCameraView;
+			TargetCamera->GetCameraComponent()->GetCameraView(0.0f, VirtualCameraView);
+
+			// Execute pipeline
+			FRDGTextureRef ReprojectionUVMap = StereolabsCompositing::CreateReprojectionUVMap(
+				GraphBuilder,
+				VirtualCameraView,
+				FIntPoint{
+					static_cast<int32>(InputResource->GetSizeX()),
+					static_cast<int32>(InputResource->GetSizeY())
+				}
+			);
+
+			StereolabsCompositing::VisualizeReprojectionUVMap(
+				GraphBuilder,
+				ReprojectionUVMap,
+				OutTexture
+			);
+
+			GraphBuilder.Execute();
+		});
 }

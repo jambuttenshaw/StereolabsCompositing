@@ -7,6 +7,7 @@ struct FDepthProcessingParametersProxy
 {
 	// Camera properties
 	FMatrix44f InvProjectionMatrix; // for projecting points into view space
+	float CameraNearClippingPlane;
 
 	// Relaxation parameters
 	bool bEnableJacobiSteps;
@@ -83,12 +84,34 @@ struct FRelightingParametersProxy
 
 namespace StereolabsCompositing
 {
+
 	void ExecuteDepthProcessingPipeline(
 		FRDGBuilder& GraphBuilder,
 		const FDepthProcessingParametersProxy& Parameters,
-		FRDGTextureRef InTexture,				
-		FRDGTextureRef OutTexture				
+		FRDGTextureRef InTexture,
+		FRDGTextureRef OutTexture
 	);
+
+	void VisualizeProcessedDepth(
+		FRDGBuilder& GraphBuilder,
+		FVector2f VisualizeRange, // [VisualizeRange.x, VisualizeRange.y] is mapped to [0,1]
+		FRDGTextureRef ProcessedDepthTexture,
+		FRDGTextureRef OutTexture
+	);
+
+
+	FRDGTextureRef CreateReprojectionUVMap(
+		FRDGBuilder& GraphBuilder,
+		const FMinimalViewInfo& VirtualCameraView,
+		FIntPoint TextureExtent
+	);
+
+	void VisualizeReprojectionUVMap(
+		FRDGBuilder& GraphBuilder,
+		FRDGTextureRef ReprojectionUVMap,
+		FRDGTextureRef OutTexture
+	);
+	
 
 	void ExecuteVolumetricsCompositionPipeline(
 		FRDGBuilder& GraphBuilder,
