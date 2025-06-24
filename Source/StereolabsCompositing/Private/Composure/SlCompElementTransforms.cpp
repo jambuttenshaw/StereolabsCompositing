@@ -327,7 +327,7 @@ UTexture* UCompositionStereolabsNormalMapPreviewPass::ApplyTransform_Implementat
 		LocalToWorldTransform.SetTranslation(CameraView.Location);
 	}
 
-	ENQUEUE_RENDER_COMMAND(ApplyDepthPreviewPass)(
+	ENQUEUE_RENDER_COMMAND(ApplyNormalMapPreviewPass)(
 		[bWorldSpace = bDisplayWorldSpaceNormals, LocalToWorld = LocalToWorldTransform, InputResource = Input->GetResource(), OutputResource = RenderTarget->GetResource()]
 		(FRHICommandListImmediate& RHICmdList)
 		{
