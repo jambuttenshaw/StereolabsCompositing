@@ -6,6 +6,9 @@ class FReprojectionUVMapPS : public FGlobalShader
 	DECLARE_GLOBAL_SHADER(FReprojectionUVMapPS);
 	SHADER_USE_PARAMETER_STRUCT(FReprojectionUVMapPS, FGlobalShader)
 
+	class FDisableReprojection : SHADER_PERMUTATION_BOOL("DISABLE_REPROJECTION");
+	using FPermutationDomain = TShaderPermutationDomain<FDisableReprojection>;
+
 	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
 		SHADER_PARAMETER(FMatrix44f, VirtualCameraViewToNDC)
 		SHADER_PARAMETER(FMatrix44f, VirtualCameraNDCToView)
@@ -42,7 +45,7 @@ class FVisualizeReprojectionUVMapPS : public FGlobalShader
 IMPLEMENT_GLOBAL_SHADER(FVisualizeReprojectionUVMapPS, "/Plugin/StereolabsCompositing/ReprojectionUVMap.usf", "VisualizeReprojectionUVMapPS", SF_Pixel);
 
 
-FRDGTextureRef StereolabsCompositing::CreateReprojectionUVMap(FRDGBuilder& GraphBuilder, const FMinimalViewInfo& VirtualCameraView, FIntPoint TextureExtent)
+FRDGTextureRef StereolabsCompositing::CreateReprojectionUVMap(FRDGBuilder& GraphBuilder, const FMinimalViewInfo& VirtualCameraView, FIntPoint TextureExtent, bool bPassThrough)
 {
 	check(IsInRenderingThread());
 
@@ -76,7 +79,9 @@ FRDGTextureRef StereolabsCompositing::CreateReprojectionUVMap(FRDGBuilder& Graph
 		PassParameters->RenderTargets[0] = FRenderTargetBinding(ReprojectionUVMap, ERenderTargetLoadAction::ENoAction);
 
 		FGlobalShaderMap* ShaderMap = GetGlobalShaderMap(GMaxRHIFeatureLevel);
-		TShaderMapRef<FReprojectionUVMapPS> PixelShader(ShaderMap);
+		FReprojectionUVMapPS::FPermutationDomain Permutation;
+		Permutation.Set<FReprojectionUVMapPS::FDisableReprojection>(bPassThrough);
+		TShaderMapRef<FReprojectionUVMapPS> PixelShader(ShaderMap, Permutation);
 
 		FScreenPassTextureViewport ViewPort(TextureExtent);
 

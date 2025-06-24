@@ -103,12 +103,22 @@ namespace StereolabsCompositing
 	FRDGTextureRef CreateReprojectionUVMap(
 		FRDGBuilder& GraphBuilder,
 		const FMinimalViewInfo& VirtualCameraView,
-		FIntPoint TextureExtent
+		FIntPoint TextureExtent,
+		bool bPassThough = false // Optionally pass through - debug tool to enable / disable reprojection
 	);
 
 	void VisualizeReprojectionUVMap(
 		FRDGBuilder& GraphBuilder,
 		FRDGTextureRef ReprojectionUVMap,
+		FRDGTextureRef OutTexture
+	);
+
+
+	void VisualizeNormalMap(
+		FRDGBuilder& GraphBuilder,
+		bool bWorldSpace,
+		const FTransform& LocalToWorldTransform,
+		FRDGTextureRef NormalMap,
 		FRDGTextureRef OutTexture
 	);
 	

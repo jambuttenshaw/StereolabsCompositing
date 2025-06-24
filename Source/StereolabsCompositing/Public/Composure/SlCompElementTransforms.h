@@ -114,3 +114,23 @@ private:
 	void ApplyVisualizeReprojectionUVMap(UTexture* Input, UTextureRenderTarget2D* RenderTarget, ACameraActor* TargetCamera) const;
 
 };
+
+
+/**
+ *	For easier previewing and interpretation of the normal map in the composure preview window
+ */
+UCLASS(BlueprintType, Blueprintable)
+class STEREOLABSCOMPOSITING_API UCompositionStereolabsNormalMapPreviewPass : public UCompositingElementTransform
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Compositing Pass", meta = (DisplayAfter = "PassName", EditCondition = "bEnabled"))
+	bool bDisplayWorldSpaceNormals = true;
+
+public:
+
+public:
+	virtual UTexture* ApplyTransform_Implementation(UTexture* Input, UComposurePostProcessingPassProxy* PostProcessProxy, ACameraActor* TargetCamera) override;
+
+};

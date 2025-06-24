@@ -295,3 +295,59 @@ void UCompositingStereolabsDepthPreviewPass::ApplyVisualizeReprojectionUVMap(UTe
 			GraphBuilder.Execute();
 		});
 }
+
+
+////////////////////////////////////////////////
+// UCompositionStereolabsNormalMapPreviewPass //
+////////////////////////////////////////////////
+
+UTexture* UCompositionStereolabsNormalMapPreviewPass::ApplyTransform_Implementation(UTexture* Input, UComposurePostProcessingPassProxy* PostProcessProxy, ACameraActor* TargetCamera)
+{
+	if (!Input)
+		return Input;
+	check(Input->GetResource());
+
+	if (!TargetCamera || !TargetCamera->GetCameraComponent())
+		return Input;
+
+	FIntPoint Dims;
+	Dims.X = Input->GetResource()->GetSizeX();
+	Dims.Y = Input->GetResource()->GetSizeY();
+
+	UTextureRenderTarget2D* RenderTarget = RequestRenderTarget(Dims, PF_FloatRGBA);
+	if (!(RenderTarget && RenderTarget->GetResource()))
+		return Input;
+
+	FTransform LocalToWorldTransform;
+	if (bDisplayWorldSpaceNormals)
+	{
+		FMinimalViewInfo CameraView;
+		TargetCamera->GetCameraComponent()->GetCameraView(0.0f, CameraView);
+		LocalToWorldTransform.SetRotation(CameraView.Rotation.Quaternion());
+		LocalToWorldTransform.SetTranslation(CameraView.Location);
+	}
+
+	ENQUEUE_RENDER_COMMAND(ApplyDepthPreviewPass)(
+		[bWorldSpace = bDisplayWorldSpaceNormals, LocalToWorld = LocalToWorldTransform, InputResource = Input->GetResource(), OutputResource = RenderTarget->GetResource()]
+		(FRHICommandListImmediate& RHICmdList)
+		{
+			FRDGBuilder GraphBuilder(RHICmdList);
+
+			TRefCountPtr<IPooledRenderTarget> InputRT = CreateRenderTarget(InputResource->GetTextureRHI(), TEXT("StereolabsNormalMapPreviewPass.Input"));
+			TRefCountPtr<IPooledRenderTarget> OutputRT = CreateRenderTarget(OutputResource->GetTextureRHI(), TEXT("StereolabsNormalMapPreviewPass.Output"));
+			FRDGTextureRef InTexture = GraphBuilder.RegisterExternalTexture(InputRT);
+			FRDGTextureRef OutTexture = GraphBuilder.RegisterExternalTexture(OutputRT);
+
+			StereolabsCompositing::VisualizeNormalMap(
+				GraphBuilder,
+				bWorldSpace,
+				LocalToWorld,
+				InTexture,
+				OutTexture
+			);
+
+			GraphBuilder.Execute();
+		});
+
+	return RenderTarget;
+}

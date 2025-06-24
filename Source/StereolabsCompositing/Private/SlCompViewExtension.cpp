@@ -130,7 +130,8 @@ void FSlCompViewExtension::InjectCameraFeed(FRDGBuilder& GraphBuilder, FSceneVie
 		ReprojectionUVMap = StereolabsCompositing::CreateReprojectionUVMap(
 			GraphBuilder,
 			VirtualCameraView,
-			TextureExtent
+			TextureExtent,
+			CaptureActor->bDisableReprojectionUVMap
 		);
 	}
 

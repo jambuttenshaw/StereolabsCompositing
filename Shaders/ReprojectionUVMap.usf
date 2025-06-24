@@ -15,6 +15,9 @@ float2 ReprojectionUVMapPS(
 	float2 InUV : TEXCOORD0
 ) : SV_Target0
 {
+#if DISABLE_REPROJECTION
+	return InUV;
+#else
 	// Un-project into view-space
 	float2 NDCSpacePos = (InUV - 0.5f) * 2.0f * float2(1, -1);
 
@@ -40,6 +43,7 @@ float2 ReprojectionUVMapPS(
 	}
 
 	return OutUV;
+#endif
 }
 
 

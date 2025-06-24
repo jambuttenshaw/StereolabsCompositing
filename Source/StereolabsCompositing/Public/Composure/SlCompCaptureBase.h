@@ -39,6 +39,9 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Composure|Injection", meta=(EditCondition="bInjectionMode"))
 	FName CameraNormalsPassName;
 
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Composure|Injection", meta = (EditCondition = "bInjectionMode"))
+	bool bDisableReprojectionUVMap = false;
+
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Composure|Injection", meta=(EditCondition="bInjectionMode"))
 	bool bExtractVolumetricFogInInjectionMode = false;
 
