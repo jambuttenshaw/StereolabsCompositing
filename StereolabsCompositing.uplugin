@@ -19,11 +19,6 @@
 			"Name": "StereolabsCompositing",
 			"Type": "Runtime",
 			"LoadingPhase": "PostConfigInit"
-		},
-		{
-			"Name": "StereolabsCompositingEditor",
-			"Type": "Editor",
-			"LoadingPhase": "Default"
 		}
 	],
 	"Plugins": [
