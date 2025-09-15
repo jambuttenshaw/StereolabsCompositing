@@ -2,8 +2,6 @@
 
 #include "SlCompEngineSubsystem.h"
 
-#include "SceneViewExtension.h"
-#include "SlCompViewExtension.h"
 #include "StereolabsCompositing.h"
 
 #include "Core/StereolabsCoreGlobals.h"
