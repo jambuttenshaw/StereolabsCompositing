@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ScreenPass.h"
+#include <functional>
 
 
 struct FDepthProcessingParametersProxy

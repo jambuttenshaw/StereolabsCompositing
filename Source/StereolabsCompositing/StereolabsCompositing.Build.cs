@@ -38,6 +38,7 @@ public class StereolabsCompositing : ModuleRules
 	        new string[]
 	        {
 		        EnginePath + "Source/Runtime/Renderer/Private/",
+		        EnginePath + "Source/Runtime/Renderer/Internal/",
 	        }
         );
     }
