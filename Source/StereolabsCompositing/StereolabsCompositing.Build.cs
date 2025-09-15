@@ -15,7 +15,8 @@ public class StereolabsCompositing : ModuleRules
             {
                 "Core",
                 "Stereolabs",
-                "Composure"
+                "Composure",
+                "CompositionUtils"
 			}
         );
 

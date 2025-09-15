@@ -8,13 +8,37 @@ USlCompInput::USlCompInput()
 {
 }
 
+FMatrix44f USlCompInput::GetProjectionMatrix() const
+{
+	if (USlCompEngineSubsystem* Subsystem = GEngine->GetEngineSubsystem<USlCompEngineSubsystem>())
+	{
+		return static_cast<FMatrix44f>(Subsystem->GetProjectionMatrix());
+	}
+	return FMatrix44f::Identity;
+}
+
+FMatrix44f USlCompInput::GetInverseProjectionMatrix() const
+{
+	if (USlCompEngineSubsystem* Subsystem = GEngine->GetEngineSubsystem<USlCompEngineSubsystem>())
+	{
+		return static_cast<FMatrix44f>(Subsystem->GetInvProjectionMatrix());
+	}
+	return FMatrix44f::Identity;
+}
+
+float USlCompInput::GetNearClippingPlane() const
+{
+	if (USlCompEngineSubsystem* Subsystem = GEngine->GetEngineSubsystem<USlCompEngineSubsystem>())
+	{
+		return Subsystem->GetNearClippingPlane();
+	}
+	return 10.0f /* Sensible default*/;
+}
 
 UTexture* USlCompInput::GenerateInput_Implementation()
 {
-	USlCompEngineSubsystem* Subsystem = GEngine->GetEngineSubsystem<USlCompEngineSubsystem>();
 	UTexture* Result = nullptr;
-
-	if (Subsystem)
+	if (USlCompEngineSubsystem* Subsystem = GEngine->GetEngineSubsystem<USlCompEngineSubsystem>())
 	{
 		switch (InputSource)
 		{

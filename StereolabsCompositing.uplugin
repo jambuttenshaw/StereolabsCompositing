@@ -29,6 +29,10 @@
 		{
 			"Name": "Stereolabs",
 			"Enabled": true
+		},
+		{
+			"Name": "CompositionUtils",
+			"Enabled": true
 		}
 	]
 }

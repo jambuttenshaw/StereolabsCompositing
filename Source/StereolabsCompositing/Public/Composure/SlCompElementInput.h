@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Composure/CompUtilsElementInput.h"
 #include "Composure/Classes/CompositingElements/CompositingElementPasses.h"
 
 #include "SlCompElementInput.generated.h"
@@ -16,7 +17,7 @@ enum class ESlCompInputChannel : uint8
 
 
 UCLASS(BlueprintType, Blueprintable)
-class STEREOLABSCOMPOSITING_API USlCompInput : public UCompositingElementInput
+class STEREOLABSCOMPOSITING_API USlCompInput : public UCompositionUtilsAuxiliaryCameraInput
 {
 	GENERATED_BODY()
 public:
@@ -24,6 +25,12 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Compositing Pass", meta=(EditCondition="bEnabled"))
 	ESlCompInputChannel InputSource = ESlCompInputChannel::Color;
+
+	//~ Begin UCompositionUtilsAuxiliaryCameraInput interface
+	virtual FMatrix44f GetProjectionMatrix() const override;
+	virtual FMatrix44f GetInverseProjectionMatrix() const override;
+	virtual float GetNearClippingPlane() const override;
+	//~ End UCompositionUtilsAuxiliaryCameraInput interface
 
 protected:
 	//~ Begin UCompositingElementInput interface	
