@@ -27,9 +27,7 @@ public:
 	ESlCompInputChannel InputSource = ESlCompInputChannel::Color;
 
 	//~ Begin UCompositionUtilsAuxiliaryCameraInput interface
-	virtual FMatrix44f GetProjectionMatrix() const override;
-	virtual FMatrix44f GetInverseProjectionMatrix() const override;
-	virtual float GetNearClippingPlane() const override;
+	virtual bool GetCameraData(FAuxiliaryCameraDataProxy& OutData) override;
 	//~ End UCompositionUtilsAuxiliaryCameraInput interface
 
 protected:

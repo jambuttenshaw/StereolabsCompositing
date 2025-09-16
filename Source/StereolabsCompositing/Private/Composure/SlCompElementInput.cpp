@@ -8,31 +8,17 @@ USlCompInput::USlCompInput()
 {
 }
 
-FMatrix44f USlCompInput::GetProjectionMatrix() const
+bool USlCompInput::GetCameraData(FAuxiliaryCameraDataProxy& OutData)
 {
 	if (USlCompEngineSubsystem* Subsystem = GEngine->GetEngineSubsystem<USlCompEngineSubsystem>())
 	{
-		return static_cast<FMatrix44f>(Subsystem->GetProjectionMatrix());
-	}
-	return FMatrix44f::Identity;
-}
+		OutData.ViewToNDCMatrix = static_cast<FMatrix44f>(Subsystem->GetProjectionMatrix());
+		OutData.NDCToViewMatrix = static_cast<FMatrix44f>(Subsystem->GetInvProjectionMatrix());
+		OutData.NearClipPlane = Subsystem->GetNearClippingPlane();
 
-FMatrix44f USlCompInput::GetInverseProjectionMatrix() const
-{
-	if (USlCompEngineSubsystem* Subsystem = GEngine->GetEngineSubsystem<USlCompEngineSubsystem>())
-	{
-		return static_cast<FMatrix44f>(Subsystem->GetInvProjectionMatrix());
+		return true;
 	}
-	return FMatrix44f::Identity;
-}
-
-float USlCompInput::GetNearClippingPlane() const
-{
-	if (USlCompEngineSubsystem* Subsystem = GEngine->GetEngineSubsystem<USlCompEngineSubsystem>())
-	{
-		return Subsystem->GetNearClippingPlane();
-	}
-	return 10.0f /* Sensible default*/;
+	return false;
 }
 
 UTexture* USlCompInput::GenerateInput_Implementation()
