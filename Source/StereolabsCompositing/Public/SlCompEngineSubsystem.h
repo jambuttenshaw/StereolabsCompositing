@@ -57,6 +57,13 @@ public:
 	UFUNCTION(BlueprintCallable)
 	inline float GetNearClippingPlane() { return NearClippingPlane;}
 
+	UFUNCTION(BlueprintCallable)
+	inline float GetHorizontalFieldOfView() { return HorizontalFieldOfView;}
+	
+	UFUNCTION(BlueprintCallable)
+	inline float GetVerticalFieldOfView() { return VerticalFieldOfView;}
+	
+
 private:
 	/** Current batch */
 	UPROPERTY()
@@ -72,8 +79,9 @@ private:
 
 	bool bCanEverTick = false;
 
-	float NearClippingPlane = 10.0f;
-
 	FMatrix CameraProjectionMatrix;
-	FMatrix InvCameraProjectionMatrix;
+	FMatrix CameraInvProjectionMatrix;
+	float NearClippingPlane = 10.0f;
+	float HorizontalFieldOfView = 90.0f;
+	float VerticalFieldOfView = 90.0f;
 };

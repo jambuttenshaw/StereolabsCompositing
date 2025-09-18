@@ -106,13 +106,16 @@ void USlCompEngineSubsystem::OnCameraOpened()
 	);
 	Batch->AddTexture(NormalTexture);
 
+	HorizontalFieldOfView = FMath::DegreesToRadians(CameraParameters.HFOV);
+	VerticalFieldOfView = FMath::DegreesToRadians(CameraParameters.VFOV);
+
 	// Calculate a projection matrix based off of the camera properties
 	// Setting min == max will project far plane to infinity
 	// In practice camera cannot calculate depth at distances <~30cm, so setting near plane to any value below this is adequate
-	const float HalfFovX = 0.5f * FMath::DegreesToRadians(CameraParameters.HFOV);
-	const float HalfFovY = 0.5f * FMath::DegreesToRadians(CameraParameters.VFOV);
+	const float HalfFovX = 0.5f * HorizontalFieldOfView;
+	const float HalfFovY = 0.5f * VerticalFieldOfView;
 	CameraProjectionMatrix = FReversedZPerspectiveMatrix(HalfFovX, HalfFovY, 1.0f, 1.0f, NearClippingPlane, NearClippingPlane);
-	InvCameraProjectionMatrix = CameraProjectionMatrix.Inverse();
+	CameraInvProjectionMatrix = CameraProjectionMatrix.Inverse();
 }
 
 void USlCompEngineSubsystem::OnCameraClosed()
@@ -143,5 +146,5 @@ const FMatrix& USlCompEngineSubsystem::GetProjectionMatrix()
 
 const FMatrix& USlCompEngineSubsystem::GetInvProjectionMatrix()
 {
-	return InvCameraProjectionMatrix;
+	return CameraInvProjectionMatrix;
 }

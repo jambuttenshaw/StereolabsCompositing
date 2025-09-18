@@ -8,13 +8,15 @@ USlCompInput::USlCompInput()
 {
 }
 
-bool USlCompInput::GetCameraData(FAuxiliaryCameraDataProxy& OutData)
+bool USlCompInput::GetCameraData(FAuxiliaryCameraData& OutData)
 {
 	if (USlCompEngineSubsystem* Subsystem = GEngine->GetEngineSubsystem<USlCompEngineSubsystem>())
 	{
 		OutData.ViewToNDCMatrix = static_cast<FMatrix44f>(Subsystem->GetProjectionMatrix());
 		OutData.NDCToViewMatrix = static_cast<FMatrix44f>(Subsystem->GetInvProjectionMatrix());
 		OutData.NearClipPlane = Subsystem->GetNearClippingPlane();
+		OutData.HorizontalFOV = Subsystem->GetHorizontalFieldOfView();
+		OutData.VerticalFOV = Subsystem->GetVerticalFieldOfView();
 
 		return true;
 	}

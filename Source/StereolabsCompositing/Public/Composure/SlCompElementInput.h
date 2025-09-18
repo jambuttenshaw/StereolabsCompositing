@@ -27,7 +27,7 @@ public:
 	ESlCompInputChannel InputSource = ESlCompInputChannel::Color;
 
 	//~ Begin UCompositionUtilsAuxiliaryCameraInput interface
-	virtual bool GetCameraData(FAuxiliaryCameraDataProxy& OutData) override;
+	virtual bool GetCameraData(FAuxiliaryCameraData& OutData) override;
 	//~ End UCompositionUtilsAuxiliaryCameraInput interface
 
 protected:
