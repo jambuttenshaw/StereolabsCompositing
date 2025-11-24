@@ -21,7 +21,7 @@ enum class ESlCompInputType : uint8
 
 
 UCLASS(BlueprintType, Blueprintable)
-class STEREOLABSCOMPOSITING_API USlCompInput : public UCompositionUtilsAuxiliaryCameraInput
+class STEREOLABSCOMPOSITING_API USlCompInput : public UCompositionUtilsCameraInput
 {
 	GENERATED_BODY()
 public:
@@ -40,9 +40,9 @@ private:
 	ESlMeasure MeasureSource = ESlMeasure::M_Depth;
 
 public:
-	//~ Begin UCompositionUtilsAuxiliaryCameraInput interface
-	virtual bool GetCameraData(FAuxiliaryCameraData& OutData) override;
-	//~ End UCompositionUtilsAuxiliaryCameraInput interface
+	//~ Begin UCompositionUtilsCameraInput interface
+	virtual bool GetCameraIntrinsicData(FCompUtilsCameraIntrinsicData& OutData) override;
+	//~ End UCompositionUtilsCameraInput interface
 
 protected:
 	//~ Begin UObject interface

@@ -8,7 +8,7 @@ USlCompInput::USlCompInput()
 {
 }
 
-bool USlCompInput::GetCameraData(FAuxiliaryCameraData& OutData)
+bool USlCompInput::GetCameraIntrinsicData(FCompUtilsCameraIntrinsicData& OutData)
 {
 	if (USlCompEngineSubsystem* Subsystem = GEngine->GetEngineSubsystem<USlCompEngineSubsystem>())
 	{
