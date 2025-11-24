@@ -25,16 +25,51 @@ bool USlCompInput::GetCameraData(FAuxiliaryCameraData& OutData)
 
 UTexture* USlCompInput::GenerateInput_Implementation()
 {
-	UTexture* Result = nullptr;
-	if (USlCompEngineSubsystem* Subsystem = GEngine->GetEngineSubsystem<USlCompEngineSubsystem>())
+	if (!ImageWrapper)
 	{
-		switch (InputSource)
-		{
-		case ESlCompInputChannel::Color: Result = Subsystem->GetColorTexture(); break;
-		case ESlCompInputChannel::Depth: Result = Subsystem->GetDepthTexture(); break;
-		case ESlCompInputChannel::Normal: Result = Subsystem->GetNormalTexture(); break;
-		}
+		FetchNewWrapper();
 	}
 
-	return Result;
+	return ImageWrapper ? ImageWrapper->GetTexture() : nullptr;
+}
+
+#if WITH_EDITOR
+
+void USlCompInput::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
+{
+	// Check if we need to request a new source from the engine subsystem
+
+	FName PropertyName = (PropertyChangedEvent.Property != nullptr) ? PropertyChangedEvent.Property->GetFName() : NAME_None;
+
+	bool TargetChanged = PropertyName == GET_MEMBER_NAME_CHECKED(USlCompInput, InputType);
+	TargetChanged	  |= PropertyName == GET_MEMBER_NAME_CHECKED(USlCompInput, ViewSource);
+	TargetChanged	  |= PropertyName == GET_MEMBER_NAME_CHECKED(USlCompInput, MeasureSource);
+	if (TargetChanged)
+	{
+		FetchNewWrapper();
+	}
+
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+}
+
+#endif
+
+void USlCompInput::FetchNewWrapper()
+{
+	if (auto Subsystem = GEngine->GetEngineSubsystem<USlCompEngineSubsystem>())
+	{
+		switch (InputType)
+		{
+			case ESlCompInputType::SlComp_View:		ImageWrapper = Subsystem->GetOrCreateImageWrapper(ViewSource);		break;
+			case ESlCompInputType::SlComp_Measure:	ImageWrapper = Subsystem->GetOrCreateImageWrapper(MeasureSource);	break;
+			default:
+			{
+				checkNoEntry();
+			}
+		}
+	}
+	else
+	{
+		ImageWrapper = nullptr;
+	}
 }

@@ -4,10 +4,18 @@
 
 #include "CoreMinimal.h"
 #include "Tickable.h"
+
 #include "Subsystems/EngineSubsystem.h"
+
 #include "Core/StereolabsCameraProxy.h"
+#include "Core/StereolabsTextureBatch.h"
 
 #include "SlCompEngineSubsystem.generated.h"
+
+class FSlCompImageWrapper;
+
+// A target can either be a view or a measure - it is convenient to wrap these together as they only differ in method of construction
+using FSlCompImageWrapperTarget = TVariant<ESlView, ESlMeasure>;
 
 /**
  * 
@@ -40,14 +48,24 @@ protected:
 
 public:
 
-	UFUNCTION(BlueprintCallable)
-	UTexture2D* GetColorTexture();
+	// Images from camera
+	TSharedPtr<FSlCompImageWrapper> GetOrCreateImageWrapper(ESlView View)
+	{
+		FSlCompImageWrapperTarget Target;
+		Target.Set<ESlView>(View);
+		return GetOrCreateImageWrapperImpl(std::move(Target));
+	}
+	TSharedPtr<FSlCompImageWrapper> GetOrCreateImageWrapper(ESlMeasure Measure)
+	{
+		FSlCompImageWrapperTarget Target;
+		Target.Set<ESlMeasure>(Measure);
+		return GetOrCreateImageWrapperImpl(std::move(Target));
+	}
+private:
+	TSharedPtr<FSlCompImageWrapper> GetOrCreateImageWrapperImpl(FSlCompImageWrapperTarget&& Target);
 
-	UFUNCTION(BlueprintCallable)
-	UTexture2D* GetDepthTexture();
-
-	UFUNCTION(BlueprintCallable)
-	UTexture2D* GetNormalTexture();
+public:
+	// Camera properties
 
 	UFUNCTION(BlueprintCallable)
 	const FMatrix& GetProjectionMatrix();
@@ -66,16 +84,12 @@ public:
 
 private:
 	/** Current batch */
-	UPROPERTY()
-	class USlGPUTextureBatch* Batch = nullptr;
+	TStrongObjectPtr<USlTextureBatch> Batch = nullptr;
 
-	// Textures with camera data:
-	UPROPERTY()
-	USlTexture* ColorTexture = nullptr;
-	UPROPERTY()
-	USlTexture* DepthTexture = nullptr;
-	UPROPERTY()
-	USlTexture* NormalTexture = nullptr;
+	// Wrappers manage the lifetime of images within the batch
+	// The engine subsystem manages distributing wrappers to clients
+	// We don't want the engine subsystem itself to participate in the lifetime management of the wrappers
+	TArray<TWeakPtr<FSlCompImageWrapper>> Wrappers;
 
 	bool bCanEverTick = false;
 
@@ -84,4 +98,43 @@ private:
 	float NearClippingPlane = 10.0f;
 	float HorizontalFieldOfView = 90.0f;
 	float VerticalFieldOfView = 90.0f;
+};
+
+
+class FSlCompImageWrapper
+{
+public:
+	// Pass key idiom is required (rather than simply using friend classes)
+	// so objects can be created with MakeShared
+	class PassKey
+	{
+		friend class FSlCompImageWrapper;
+		friend class USlCompEngineSubsystem;
+		explicit PassKey() = default;
+	public:
+		PassKey(const PassKey&) = default;
+	};
+
+public:
+	FSlCompImageWrapper(const PassKey&, FSlCompImageWrapperTarget&& InTarget, TObjectPtr<USlTextureBatch> InBatch);
+	~FSlCompImageWrapper();
+
+	// On camera connect / disconnect, a new batch is created
+	// Which means we must recreate our texture
+	void CreateTexture(const PassKey&, TObjectPtr<USlTextureBatch> InBatch);
+
+	// Before creation of a new batch, all textures in the old batch must be destroyed
+	// This will happen when camera is connected / disconnected
+	void DestroyTexture(const PassKey&);
+
+	UTexture2D* GetTexture() const;
+
+	bool Matches(const FSlCompImageWrapperTarget& InTarget);
+
+private:
+	// Variant of view or measure
+	FSlCompImageWrapperTarget Target;
+
+	TStrongObjectPtr<USlTextureBatch> TextureBatch = nullptr;
+	TStrongObjectPtr<USlTexture> Texture = nullptr;
 };

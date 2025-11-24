@@ -18,7 +18,7 @@
 		{
 			"Name": "StereolabsCompositing",
 			"Type": "Runtime",
-			"LoadingPhase": "Default"
+			"LoadingPhase": "PostEngineInit"
 		}
 	],
 	"Plugins": [
