@@ -214,11 +214,14 @@ void USlCompEngineSubsystem::OnCameraOpened()
 	VerticalFieldOfView = FMath::DegreesToRadians(CameraParameters.VFOV);
 
 	// Calculate a projection matrix based off of the camera properties
-	// Setting min == max will project far plane to infinity
-	// In practice camera cannot calculate depth at distances <~30cm, so setting near plane to any value below this is adequate
 	const float HalfFovX = 0.5f * HorizontalFieldOfView;
 	const float HalfFovY = 0.5f * VerticalFieldOfView;
-	CameraProjectionMatrix = FReversedZPerspectiveMatrix(HalfFovX, HalfFovY, 1.0f, 1.0f, NearClippingPlane, NearClippingPlane);
+	CameraProjectionMatrix = FMatrix(
+		FPlane(1.0f / FMath::Tan(HalfFovX), 0.0f,							0.0f, 0.0f),
+		FPlane(0.0f,							1.0f / FMath::Tan(HalfFovY),		0.0f, 0.0f),
+		FPlane(0.0f,							0.0f,							0.0f, 1.0f),
+		FPlane(0.0f,							0.0f,							0.0f, 0.0f)
+	);
 	CameraInvProjectionMatrix = CameraProjectionMatrix.Inverse();
 }
 

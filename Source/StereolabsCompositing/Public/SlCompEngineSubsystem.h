@@ -68,9 +68,6 @@ public:
 	const FMatrix& GetInvProjectionMatrix();
 
 	UFUNCTION(BlueprintCallable)
-	inline float GetNearClippingPlane() { return NearClippingPlane;}
-
-	UFUNCTION(BlueprintCallable)
 	inline float GetHorizontalFieldOfView() { return HorizontalFieldOfView;}
 	
 	UFUNCTION(BlueprintCallable)
@@ -90,7 +87,6 @@ private:
 
 	FMatrix CameraProjectionMatrix;
 	FMatrix CameraInvProjectionMatrix;
-	float NearClippingPlane = 10.0f;
 	float HorizontalFieldOfView = 90.0f;
 	float VerticalFieldOfView = 90.0f;
 };
