@@ -48,18 +48,13 @@ protected:
 
 public:
 
-	// Images from camera
-	TSharedPtr<FSlCompImageWrapper> GetOrCreateImageWrapper(ESlView View)
+	// Images from camera are provided by an ImageWrapper
+	// This object manages the lifetime of textures and enables
+	// sharing of resources between clients
+	template <typename T>
+	TSharedPtr<FSlCompImageWrapper> GetOrCreateImageWrapper(T InTarget)
 	{
-		FSlCompImageWrapperTarget Target;
-		Target.Set<ESlView>(View);
-		return GetOrCreateImageWrapperImpl(std::move(Target));
-	}
-	TSharedPtr<FSlCompImageWrapper> GetOrCreateImageWrapper(ESlMeasure Measure)
-	{
-		FSlCompImageWrapperTarget Target;
-		Target.Set<ESlMeasure>(Measure);
-		return GetOrCreateImageWrapperImpl(std::move(Target));
+		return GetOrCreateImageWrapperImpl(FSlCompImageWrapperTarget{ TInPlaceType<T>(), InTarget });
 	}
 private:
 	TSharedPtr<FSlCompImageWrapper> GetOrCreateImageWrapperImpl(FSlCompImageWrapperTarget&& Target);
@@ -111,8 +106,6 @@ public:
 		friend class FSlCompImageWrapper;
 		friend class USlCompEngineSubsystem;
 		explicit PassKey() = default;
-	public:
-		PassKey(const PassKey&) = default;
 	};
 
 public:

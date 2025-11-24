@@ -1,14 +1,11 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "SlCompEngineSubsystem.h"
-#include "SlCompEngineSubsystem.h"
 
 #include "StereolabsCompositing.h"
+#include "StereolabsCompositingSettings.h"
 
 #include "Core/StereolabsCoreGlobals.h"
-#include "Core/StereolabsCameraProxy.h"
-#include "StereolabsCompositingSettings.h"
-#include "Core/StereolabsTextureBatch.h"
 
 
 void LogCameraInitParams(const FSlInitParameters& InitParams)
@@ -181,7 +178,7 @@ void USlCompEngineSubsystem::Tick(float DeltaTime)
 		return;
 	}
 
-	bool bNewImage = Batch->Tick();
+	(void)Batch->Tick();
 }
 
 bool USlCompEngineSubsystem::IsTickable() const
@@ -250,7 +247,6 @@ const FMatrix& USlCompEngineSubsystem::GetInvProjectionMatrix()
 	return CameraInvProjectionMatrix;
 }
 
-
 TSharedPtr<FSlCompImageWrapper> USlCompEngineSubsystem::GetOrCreateImageWrapperImpl(FSlCompImageWrapperTarget&& Target)
 {
 	// Try to find an existing wrapper over this target
@@ -279,6 +275,7 @@ TSharedPtr<FSlCompImageWrapper> USlCompEngineSubsystem::GetOrCreateImageWrapperI
 
 	return Wrapper;
 }
+
 
 FSlCompImageWrapper::FSlCompImageWrapper(const PassKey&, FSlCompImageWrapperTarget&& InTarget, TObjectPtr<USlTextureBatch> InBatch)
 	: Target(std::move(InTarget))
@@ -359,7 +356,7 @@ bool FSlCompImageWrapper::Matches(const FSlCompImageWrapperTarget& InTarget)
 	{
 		return InTarget.Get<ESlView>() == Target.Get<ESlView>();
 	}
-	else if(InTarget.IsType<ESlMeasure>())
+	if(InTarget.IsType<ESlMeasure>())
 	{
 		return InTarget.Get<ESlMeasure>() == Target.Get<ESlMeasure>();
 	}
