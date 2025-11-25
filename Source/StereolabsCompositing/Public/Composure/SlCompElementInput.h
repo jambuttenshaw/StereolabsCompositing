@@ -2,8 +2,8 @@
 
 #include "CoreMinimal.h"
 
-#include "Composure/CompUtilsElementInput.h"
 #include "Composure/Classes/CompositingElements/CompositingElementPasses.h"
+#include "CompUtilsCameraInterface.h"
 
 #include "Core/StereolabsBaseTypes.h"
 
@@ -21,7 +21,7 @@ enum class ESlCompInputType : uint8
 
 
 UCLASS(BlueprintType, Blueprintable)
-class STEREOLABSCOMPOSITING_API USlCompInput : public UCompositionUtilsCameraInput
+class STEREOLABSCOMPOSITING_API USlCompInput : public UCompositingElementInput, public ICompUtilsCameraInterface
 {
 	GENERATED_BODY()
 public:
@@ -40,9 +40,9 @@ private:
 	ESlMeasure MeasureSource = ESlMeasure::M_Depth;
 
 public:
-	//~ Begin UCompositionUtilsCameraInput interface
+	//~ Begin ICompUtilsCameraInterface interface
 	virtual bool GetCameraIntrinsicData(FCompUtilsCameraIntrinsicData& OutData) override;
-	//~ End UCompositionUtilsCameraInput interface
+	//~ End ICompUtilsCameraInterface interface
 
 protected:
 	//~ Begin UObject interface

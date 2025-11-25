@@ -63,9 +63,9 @@ public:
 	// Camera properties
 
 	UFUNCTION(BlueprintCallable)
-	const FMatrix& GetProjectionMatrix();
+	const FMatrix& GetProjectionMatrix() { return CameraProjectionMatrix; }
 	UFUNCTION(BlueprintCallable)
-	const FMatrix& GetInvProjectionMatrix();
+	const FMatrix& GetInvProjectionMatrix() { return CameraInvProjectionMatrix; }
 
 	UFUNCTION(BlueprintCallable)
 	inline float GetHorizontalFieldOfView() { return HorizontalFieldOfView;}
@@ -96,7 +96,7 @@ class FSlCompImageWrapper
 {
 public:
 	// Pass key idiom is required (rather than simply using friend classes)
-	// so objects can be created with MakeShared
+	// so objects can be created with MakeShared - enabled by passing PassKey's by const&
 	class PassKey
 	{
 		friend class FSlCompImageWrapper;
