@@ -61,6 +61,13 @@ void LogCameraInformation(const FSlCameraInformation& CameraInfo)
 	UE_LOG(LogStereolabsCompositing, Display, TEXT("	\t Translation:	%s"), *Calibration.Translation.ToCompactString());
 	LogCameraLensParameters(Calibration.LeftCameraParameters, TEXT("Left"));
 	LogCameraLensParameters(Calibration.RightCameraParameters, TEXT("Right"));
+
+	const auto& CalibrationRaw = CameraInfo.CalibrationParametersRaw;
+	UE_LOG(LogStereolabsCompositing, Display, TEXT("Camera (Unrectified) Extrinsic Calibration:"));
+	UE_LOG(LogStereolabsCompositing, Display, TEXT("	\t Rotation:		%s"), *CalibrationRaw.Rotation.ToCompactString());
+	UE_LOG(LogStereolabsCompositing, Display, TEXT("	\t Translation:	%s"), *CalibrationRaw.Translation.ToCompactString());
+	LogCameraLensParameters(CalibrationRaw.LeftCameraParameters, TEXT("Left - Unrectified"));
+	LogCameraLensParameters(CalibrationRaw.RightCameraParameters, TEXT("Right  - Unrectified"));
 }
 
 
