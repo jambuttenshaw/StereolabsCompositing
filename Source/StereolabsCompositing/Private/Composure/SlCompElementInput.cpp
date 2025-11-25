@@ -12,8 +12,8 @@ bool USlCompInput::GetCameraIntrinsicData(FCompUtilsCameraIntrinsicData& OutData
 {
 	if (USlCompEngineSubsystem* Subsystem = GEngine->GetEngineSubsystem<USlCompEngineSubsystem>())
 	{
-		OutData.ViewToNDCMatrix = static_cast<FMatrix44f>(Subsystem->GetProjectionMatrix());
-		OutData.NDCToViewMatrix = static_cast<FMatrix44f>(Subsystem->GetInvProjectionMatrix());
+		OutData.ViewToNDC = static_cast<FMatrix44f>(Subsystem->GetProjectionMatrix());
+		OutData.NDCToView = static_cast<FMatrix44f>(Subsystem->GetInvProjectionMatrix());
 		OutData.HorizontalFOV = Subsystem->GetHorizontalFieldOfView();
 		OutData.VerticalFOV = Subsystem->GetVerticalFieldOfView();
 

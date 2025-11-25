@@ -220,7 +220,7 @@ void USlCompEngineSubsystem::OnCameraOpened()
 		FPlane(1.0f / FMath::Tan(HalfFovX), 0.0f,							0.0f, 0.0f),
 		FPlane(0.0f,							1.0f / FMath::Tan(HalfFovY),		0.0f, 0.0f),
 		FPlane(0.0f,							0.0f,							0.0f, 1.0f),
-		FPlane(0.0f,							0.0f,							0.0f, 0.0f)
+		FPlane(0.0f,							0.0f,							0.1f, 0.0f)
 	);
 	CameraInvProjectionMatrix = CameraProjectionMatrix.Inverse();
 }
