@@ -6,18 +6,12 @@
 #include "CompUtilsCameraInterface.h"
 
 #include "Core/StereolabsBaseTypes.h"
+#include "SlCompTypes.h"
 
 #include "SlCompElementInput.generated.h"
 
 
 class FSlCompImageWrapper;
-
-UENUM(BlueprintType)
-enum class ESlCompInputType : uint8
-{
-	SlComp_View			UMETA(DisplayName = "View"),
-	SlComp_Measure		UMETA(DisplayName = "Measure"),
-};
 
 
 UCLASS(BlueprintType, Blueprintable)
@@ -29,6 +23,7 @@ public:
 
 private:
 	// Private as modifying these members will change which ImageWrapper this input element should point to
+	// TODO: Add UFUNCTION's to allow blueprint to interface
 
 	UPROPERTY(EditAnywhere, Category="Compositing Pass", meta=(EditCondition="bEnabled"))
 	ESlCompInputType InputType = ESlCompInputType::SlComp_View;
