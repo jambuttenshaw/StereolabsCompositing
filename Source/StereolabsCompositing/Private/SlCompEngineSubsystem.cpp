@@ -7,6 +7,10 @@
 
 #include "Core/StereolabsCoreGlobals.h"
 
+#include "CanvasTypes.h"
+#include "Engine/Canvas.h"
+#include "Engine/TextureRenderTarget2D.h"
+
 
 void LogCameraInitParams(const FSlInitParameters& InitParams)
 {
@@ -124,14 +128,38 @@ ESlTextureFormat GetTextureFormatForMeasure(ESlMeasure Measure)
 	}
 }
 
+// Copied from Composure\Private\CompositingElements\CompositingElementPasses.cpp
+static bool GetTargetFormatFromPixelFormat(const EPixelFormat PixelFormat, ETextureRenderTargetFormat& OutRTFormat)
+{
+	switch (PixelFormat)
+	{
+	case PF_G8: OutRTFormat = RTF_R8; return true;
+	case PF_R8G8: OutRTFormat = RTF_RG8; return true;
+	case PF_B8G8R8A8: OutRTFormat = RTF_RGBA8; return true;
 
-FSlCompImageWrapperTarget::FSlCompImageWrapperTarget(ESlView View)
-	: ViewOrMeasure(TInPlaceType<ESlView>(), View)
+	case PF_R16F: OutRTFormat = RTF_R16f; return true;
+	case PF_G16R16F: OutRTFormat = RTF_RG16f; return true;
+	case PF_FloatRGBA: OutRTFormat = RTF_RGBA16f; return true;
+
+	case PF_R32_FLOAT: OutRTFormat = RTF_R32f; return true;
+	case PF_G32R32F: OutRTFormat = RTF_RG32f; return true;
+	case PF_A32B32G32R32F: OutRTFormat = RTF_RGBA32f; return true;
+	case PF_A2B10G10R10: OutRTFormat = RTF_RGB10A2; return true;
+	default:
+		break;
+	}
+	return false;
+}
+
+
+FSlCompImageWrapperTarget::FSlCompImageWrapperTarget(ESlView InView, bool bInInverseTonemapping)
+	: ViewOrMeasure(TInPlaceType<ESlView>(), InView)
+	, bInverseTonemapping(bInInverseTonemapping)
 {
 }
 
-FSlCompImageWrapperTarget::FSlCompImageWrapperTarget(ESlMeasure Measure)
-	: ViewOrMeasure(TInPlaceType<ESlMeasure>(), Measure)
+FSlCompImageWrapperTarget::FSlCompImageWrapperTarget(ESlMeasure InMeasure)
+	: ViewOrMeasure(TInPlaceType<ESlMeasure>(), InMeasure)
 {
 }
 
@@ -163,18 +191,38 @@ bool FSlCompImageWrapperTarget::operator==(const FSlCompImageWrapperTarget& Othe
 	// InTarget and Target have the same index
 	if (Other.ViewOrMeasure.IsType<ESlView>())
 	{
-		return Other.ViewOrMeasure.Get<ESlView>() == ViewOrMeasure.Get<ESlView>();
+		if (Other.ViewOrMeasure.Get<ESlView>() != ViewOrMeasure.Get<ESlView>())
+			return false;
 	}
 	if (Other.ViewOrMeasure.IsType<ESlMeasure>())
 	{
-		return Other.ViewOrMeasure.Get<ESlMeasure>() == ViewOrMeasure.Get<ESlMeasure>();
+		if (Other.ViewOrMeasure.Get<ESlMeasure>() != ViewOrMeasure.Get<ESlMeasure>())
+			return false;
 	}
 
-	checkNoEntry();
-	return false;
+	if (Other.bInverseTonemapping != bInverseTonemapping)
+	{
+		return false;
+	}
+
+	return true;
 }
 
 
+USlCompEngineSubsystem::USlCompEngineSubsystem()
+{
+	static const FString InvTonemappingMatRef = "/Script/Engine.Material'/StereolabsCompositing/StereolabsCompositing/Materials/M_StereolabsInverseTonemapping.M_StereolabsInverseTonemapping'";
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> InvTonemappingMatFinder(*InvTonemappingMatRef);
+
+	if (InvTonemappingMatFinder.Succeeded())
+	{
+		InverseTonemappingMID = UMaterialInstanceDynamic::Create(Cast<UMaterialInterface>(InvTonemappingMatFinder.Object), this, "MID_StereolabsInverseTonemapping");
+	}
+	else
+	{
+		UE_LOG(LogStereolabsCompositing, Error, TEXT("Failed to find inverse tonemapping material!"));
+	}
+}
 
 void USlCompEngineSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -237,7 +285,14 @@ void USlCompEngineSubsystem::Tick(float DeltaTime)
 
 	if (Batch->Tick())
 	{
-		// Some textures require tonemapping
+		// Some textures want to respond to new textures being acquired
+		for (auto WrapperPtr : Wrappers)
+		{
+			if (auto Wrapper = WrapperPtr.Pin())
+			{
+				Wrapper->OnTextureUpdated();
+			}
+		}
 	}
 }
 
@@ -263,7 +318,7 @@ void USlCompEngineSubsystem::OnCameraOpened()
 	{
 		if (auto Wrapper = WrapperPtr.Pin())
 		{
-			Wrapper->CreateTexture(FSlCompImageWrapper::PassKey{}, Batch.Get());
+			Wrapper->CreateTexture(FSlCompImageWrapper::FPassKey{}, Batch.Get());
 		}
 	}
 
@@ -293,7 +348,7 @@ void USlCompEngineSubsystem::OnCameraClosed()
 	{
 		if (auto Wrapper = WrapperPtr.Pin())
 		{
-			Wrapper->DestroyTexture(FSlCompImageWrapper::PassKey{});
+			Wrapper->DestroyTexture(FSlCompImageWrapper::FPassKey{});
 		}
 	}
 
@@ -302,7 +357,7 @@ void USlCompEngineSubsystem::OnCameraClosed()
 	Batch.Reset();
 }
 
-TSharedPtr<FSlCompImageWrapper> USlCompEngineSubsystem::GetOrCreateImageWrapperImpl(FSlCompImageWrapperTarget&& Target)
+TSharedPtr<ISlCompImageWrapper> USlCompEngineSubsystem::GetOrCreateImageWrapperImpl(FSlCompImageWrapperTarget&& Target)
 {
 	// Try to find an existing wrapper over this target
 	for (const auto& WrapperPtr : Wrappers)
@@ -310,7 +365,7 @@ TSharedPtr<FSlCompImageWrapper> USlCompEngineSubsystem::GetOrCreateImageWrapperI
 		if (WrapperPtr.IsValid())
 		{
 			auto Wrapper = WrapperPtr.Pin();
-			if (Wrapper->Matches(Target))
+			if (Wrapper->MatchesTarget(Target))
 			{
 				return Wrapper;
 			}
@@ -321,29 +376,108 @@ TSharedPtr<FSlCompImageWrapper> USlCompEngineSubsystem::GetOrCreateImageWrapperI
 	Wrappers.RemoveAll([](const auto& Ptr){ return !Ptr.IsValid(); });
 
 	// No wrapper over this target exists yet
-	auto Wrapper = MakeShared<FSlCompImageWrapper>(
-		FSlCompImageWrapper::PassKey{},
-		std::move(Target),
-		Batch.Get());
+	TSharedPtr<ISlCompImageWrapper> Wrapper;
+
+	if (Target.IsInverseTonemappingEnabled())
+	{
+		Wrapper = MakeShared<FSlCompTonemappedImageWrapper>(
+			FSlCompTonemappedImageWrapper::FPassKey{},
+			std::move(Target));
+	}
+	else
+	{
+		Wrapper = MakeShared<FSlCompImageWrapper>(
+			FSlCompImageWrapper::FPassKey{},
+			std::move(Target));
+	}
+	Wrapper->CreateTexture(FSlCompImageWrapper::FPassKey{}, Batch.Get());
 
 	Wrappers.Emplace(Wrapper);
 
 	return Wrapper;
 }
 
+void USlCompEngineSubsystem::DoInverseTonemapping(UTexture* Input, UTextureRenderTarget2D* Output)
+{
+	if (!FApp::CanEverRender())
+	{
+		// Returning early to avoid warnings about missing resources that are expected when CanEverRender is false.
+		return;
+	}
 
-FSlCompImageWrapper::FSlCompImageWrapper(const PassKey&, FSlCompImageWrapperTarget&& InTarget, TObjectPtr<USlTextureBatch> InBatch)
+	check(InverseTonemappingMID && "Material instance dynamic should exist!");
+
+	if (!Output)
+	{
+		UE_LOG(LogStereolabsCompositing, Error, TEXT("SlCompEngineSubsystem: Output must be non-null."));
+	}
+	else if (!Output->GetResource())
+	{
+		UE_LOG(LogStereolabsCompositing, Error, TEXT("SlCompEngineSubsystem: Render target has been released."));
+	}
+	else if (!Input)
+	{
+		UE_LOG(LogStereolabsCompositing, Error, TEXT("SlCompEngineSubsystem: Input must be non-null."));
+	}
+	else if (!Input->GetResource())
+	{
+		UE_LOG(LogStereolabsCompositing, Error, TEXT("SlCompEngineSubsystem: Input has been released."));
+	}
+	else
+	{
+		InverseTonemappingMID->SetTextureParameterValue("Color", Input);
+
+		// This is a user-facing function, so we'd rather make sure that shaders are ready by the time we render, in order to ensure we don't draw with a fallback material
+		InverseTonemappingMID->EnsureIsComplete();
+		FTextureRenderTargetResource* RenderTargetResource = Output->GameThread_GetRenderTargetResource();
+
+		FCanvas RenderCanvas(
+			RenderTargetResource,
+			nullptr,
+			FGameTime(),
+			GMaxRHIFeatureLevel);
+
+		if (!Canvas)
+		{
+			Canvas = NewObject<UCanvas>(GetTransientPackage(), NAME_None);
+		}
+		Canvas->Init(Output->SizeX, Output->SizeY, nullptr, &RenderCanvas);
+
+		{
+			RHI_BREADCRUMB_EVENT_GAMETHREAD_F("DrawMaterialToRenderTarget", "DrawMaterialToRenderTarget: %s", Output->GetFName());
+
+			ENQUEUE_RENDER_COMMAND(FlushDeferredResourceUpdateCommand)(
+				[RenderTargetResource](FRHICommandListImmediate& RHICmdList)
+				{
+					RenderTargetResource->FlushDeferredResourceUpdate(RHICmdList);
+				});
+
+			Canvas->K2_DrawMaterial(InverseTonemappingMID, FVector2D(0, 0), FVector2D(Output->SizeX, Output->SizeY), FVector2D(0, 0));
+
+			RenderCanvas.Flush_GameThread();
+			Canvas->Canvas = nullptr;
+
+			//UpdateResourceImmediate must be called here to ensure mips are generated.
+			Output->UpdateResourceImmediate(false);
+		}
+	}
+}
+
+
+FSlCompImageWrapper::FSlCompImageWrapper(const FPassKey&, FSlCompImageWrapperTarget&& InTarget)
 	: Target(std::move(InTarget))
 {
-	CreateTexture(PassKey{}, InBatch);
 }
 
 FSlCompImageWrapper::~FSlCompImageWrapper()
 {
-	DestroyTexture(PassKey{});
+	if (TextureBatch && Texture)
+	{
+		TextureBatch->RemoveTexture(Texture.Get());
+	}
 }
 
-void FSlCompImageWrapper::CreateTexture(const PassKey&, TObjectPtr<USlTextureBatch> InBatch)
+void FSlCompImageWrapper::CreateTexture(const FPassKeyBase&, TObjectPtr<USlTextureBatch> InBatch)
 {
 	TextureBatch.Reset(InBatch);
 
@@ -382,7 +516,7 @@ void FSlCompImageWrapper::CreateTexture(const PassKey&, TObjectPtr<USlTextureBat
 	}
 }
 
-void FSlCompImageWrapper::DestroyTexture(const PassKey&)
+void FSlCompImageWrapper::DestroyTexture(const FPassKeyBase&)
 {
 	if (TextureBatch && Texture)
 	{
@@ -392,12 +526,91 @@ void FSlCompImageWrapper::DestroyTexture(const PassKey&)
 	TextureBatch.Reset();
 }
 
-UTexture2D* FSlCompImageWrapper::GetTexture() const
+UTexture* FSlCompImageWrapper::GetTexture() const
 {
 	return Texture ? Texture->Texture : nullptr;
 }
 
-bool FSlCompImageWrapper::Matches(const FSlCompImageWrapperTarget& InTarget) const
+bool FSlCompImageWrapper::MatchesTarget(const FSlCompImageWrapperTarget& InTarget) const
+{
+	return Target == InTarget;
+}
+
+
+FSlCompTonemappedImageWrapper::FSlCompTonemappedImageWrapper(const FPassKey&, FSlCompImageWrapperTarget&& InTarget)
+	: Target(std::move(InTarget))
+{
+	checkNoRecursion();
+
+	auto Subsystem = GEngine->GetEngineSubsystem<USlCompEngineSubsystem>();
+	check(Subsystem); // Should exist if we managed to end up inside this constructor
+
+	// Get or create wrapper without tonemapping to serve us the underlying image
+	if (auto View = InTarget.GetView())
+	{
+		ImageWrapper = Subsystem->GetOrCreateImageWrapper(*View);
+	}
+	else if (auto Measure = InTarget.GetMeasure())
+	{
+		ImageWrapper = Subsystem->GetOrCreateImageWrapper(*Measure);
+	}
+	else
+	{
+		checkNoEntry();
+	}
+}
+
+void FSlCompTonemappedImageWrapper::CreateTexture(const FPassKeyBase&, TObjectPtr<USlTextureBatch> InBatch)
+{
+	UTexture* SourceTexture = ImageWrapper->GetTexture();
+	check(SourceTexture);
+	UTexture2D* SourceTexture2D = Cast<UTexture2D>(SourceTexture);
+	check(SourceTexture2D);
+
+	ETextureRenderTargetFormat Format;
+	if (!GetTargetFormatFromPixelFormat(SourceTexture2D->GetPixelFormat(), Format))
+	{
+		// Fallback format
+		Format = RTF_RGBA8;
+	}
+
+	TonemappedTexture.Reset(NewObject<UTextureRenderTarget2D>(GetTransientPackage()));
+	check(TonemappedTexture);
+
+	TonemappedTexture->RenderTargetFormat = Format;
+	TonemappedTexture->ClearColor = FLinearColor::Black;
+	TonemappedTexture->bAutoGenerateMips = false;
+	TonemappedTexture->bCanCreateUAV = false;
+	TonemappedTexture->InitAutoFormat(SourceTexture2D->GetSizeX(), SourceTexture2D->GetSizeY());
+	TonemappedTexture->UpdateResourceImmediate(true);
+}
+
+void FSlCompTonemappedImageWrapper::DestroyTexture(const FPassKeyBase&)
+{
+	TonemappedTexture.Reset();
+}
+
+void FSlCompTonemappedImageWrapper::OnTextureUpdated()
+{
+	// Perform tonemapping pass on image from underlying wrapper
+	if (!TonemappedTexture)
+		return;
+
+	if (auto Source = ImageWrapper->GetTexture())
+	{
+		auto Subsystem = GEngine->GetEngineSubsystem<USlCompEngineSubsystem>();
+		check(Subsystem);
+
+		Subsystem->DoInverseTonemapping(Source, TonemappedTexture.Get());
+	}
+}
+
+UTexture* FSlCompTonemappedImageWrapper::GetTexture() const
+{
+	return TonemappedTexture ? TonemappedTexture.Get() : nullptr;
+}
+
+bool FSlCompTonemappedImageWrapper::MatchesTarget(const FSlCompImageWrapperTarget& InTarget) const
 {
 	return Target == InTarget;
 }

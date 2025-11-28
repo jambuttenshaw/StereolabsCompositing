@@ -11,7 +11,7 @@
 #include "SlCompElementInput.generated.h"
 
 
-class FSlCompImageWrapper;
+class ISlCompImageWrapper;
 
 
 UCLASS(BlueprintType, Blueprintable)
@@ -57,6 +57,6 @@ private:
 	void FetchNewWrapper();
 
 private:
-	TSharedPtr<FSlCompImageWrapper> ImageWrapper;
+	TSharedPtr<ISlCompImageWrapper> ImageWrapper;
 
 };

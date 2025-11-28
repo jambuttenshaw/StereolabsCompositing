@@ -12,14 +12,13 @@
 
 #include "SlCompEngineSubsystem.generated.h"
 
-class FSlCompImageWrapper;
 
 // A target can either be a view or a measure - it is convenient to wrap these together as they only differ in method of construction
 class FSlCompImageWrapperTarget
 {
 public:
-	FSlCompImageWrapperTarget(ESlView View);
-	FSlCompImageWrapperTarget(ESlMeasure Measure);
+	FSlCompImageWrapperTarget(ESlView InView, bool bInInverseTonemapping = false);
+	FSlCompImageWrapperTarget(ESlMeasure InMeasure);
 
 	bool operator==(const FSlCompImageWrapperTarget&) const;
 
@@ -28,9 +27,37 @@ public:
 	// Returns a measure if this target is targeting a measure, nullopt otherwise
 	TOptional<ESlMeasure> GetMeasure() const;
 
+	bool IsInverseTonemappingEnabled() const { return bInverseTonemapping; }
+
 private:
 	TVariant<ESlView, ESlMeasure> ViewOrMeasure;
+	bool bInverseTonemapping = false;
 };
+
+
+class ISlCompImageWrapper
+{
+public:
+	// Pass key idiom is required (rather than simply using friend classes)
+	// so objects can be created with MakeShared - enabled by passing PassKey's by const&
+	class FPassKeyBase
+	{
+	protected:
+		explicit FPassKeyBase() = default;
+	};
+public:
+	virtual ~ISlCompImageWrapper() = default;
+
+	virtual void CreateTexture(const FPassKeyBase&, TObjectPtr<USlTextureBatch> InBatch) = 0;
+	virtual void DestroyTexture(const FPassKeyBase&) = 0;
+
+	virtual void OnTextureUpdated() {}
+
+	virtual UTexture* GetTexture() const = 0;
+
+	virtual bool MatchesTarget(const FSlCompImageWrapperTarget& InTarget) const = 0;
+};
+
 
 /**
  * 
@@ -39,8 +66,11 @@ UCLASS()
 class STEREOLABSCOMPOSITING_API USlCompEngineSubsystem : public UEngineSubsystem, public FTickableGameObject
 {
 	GENERATED_BODY()
+	
 
 public:
+	USlCompEngineSubsystem();
+
 	//~ Begin UEngineSubsystem interface	
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Deinitialize() override;
@@ -66,13 +96,17 @@ public:
 	// Images from camera are provided by an ImageWrapper
 	// This object manages the lifetime of textures and enables
 	// sharing of resources between clients
-	template <typename T>
-	TSharedPtr<FSlCompImageWrapper> GetOrCreateImageWrapper(T InTarget)
+	template <typename... Args>
+	TSharedPtr<ISlCompImageWrapper> GetOrCreateImageWrapper(Args... InArgs)
 	{
-		return GetOrCreateImageWrapperImpl(FSlCompImageWrapperTarget{ InTarget });
+		return GetOrCreateImageWrapperImpl(FSlCompImageWrapperTarget{ Forward<Args>(InArgs)... });
 	}
 private:
-	TSharedPtr<FSlCompImageWrapper> GetOrCreateImageWrapperImpl(FSlCompImageWrapperTarget&& Target);
+	TSharedPtr<ISlCompImageWrapper> GetOrCreateImageWrapperImpl(FSlCompImageWrapperTarget&& Target);
+
+public:
+
+	void DoInverseTonemapping(UTexture* Input, UTextureRenderTarget2D* Output);
 
 public:
 	// Camera properties
@@ -96,7 +130,7 @@ private:
 	// Wrappers manage the lifetime of images within the batch
 	// The engine subsystem manages distributing wrappers to clients
 	// We don't want the engine subsystem itself to participate in the lifetime management of the wrappers
-	TArray<TWeakPtr<FSlCompImageWrapper>> Wrappers;
+	TArray<TWeakPtr<ISlCompImageWrapper>> Wrappers;
 
 	bool bCanEverTick = false;
 
@@ -104,41 +138,77 @@ private:
 	FMatrix CameraInvProjectionMatrix;
 	float HorizontalFieldOfView = 90.0f;
 	float VerticalFieldOfView = 90.0f;
+
+	// For inverse tonemapping passes
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInstanceDynamic> InverseTonemappingMID;
+	UPROPERTY(Transient)
+	TObjectPtr<UCanvas> Canvas;
 };
 
 
-class FSlCompImageWrapper
+class FSlCompImageWrapper : public ISlCompImageWrapper
 {
 public:
-	// Pass key idiom is required (rather than simply using friend classes)
-	// so objects can be created with MakeShared - enabled by passing PassKey's by const&
-	class PassKey
+	class FPassKey : public FPassKeyBase
 	{
-		friend class FSlCompImageWrapper;
 		friend class USlCompEngineSubsystem;
-		explicit PassKey() = default;
+		friend class FSlCompImageWrapper;
+		explicit FPassKey() = default;
 	};
 
 public:
-	FSlCompImageWrapper(const PassKey&, FSlCompImageWrapperTarget&& InTarget, TObjectPtr<USlTextureBatch> InBatch);
-	~FSlCompImageWrapper();
+	FSlCompImageWrapper(const FPassKey&, FSlCompImageWrapperTarget&& InTarget);
+	virtual ~FSlCompImageWrapper();
 
 	// On camera connect / disconnect, a new batch is created
 	// Which means we must recreate our texture
-	void CreateTexture(const PassKey&, TObjectPtr<USlTextureBatch> InBatch);
+	virtual void CreateTexture(const FPassKeyBase&, TObjectPtr<USlTextureBatch> InBatch) override;
 
 	// Before creation of a new batch, all textures in the old batch must be destroyed
 	// This will happen when camera is connected / disconnected
-	void DestroyTexture(const PassKey&);
+	virtual void DestroyTexture(const FPassKeyBase&) override;
 
-	UTexture2D* GetTexture() const;
+	virtual UTexture* GetTexture() const override;
 
-	bool Matches(const FSlCompImageWrapperTarget& InTarget) const;
+	virtual bool MatchesTarget(const FSlCompImageWrapperTarget& InTarget) const override;
 
 private:
-	// Variant of view or measure
 	FSlCompImageWrapperTarget Target;
 
 	TStrongObjectPtr<USlTextureBatch> TextureBatch = nullptr;
 	TStrongObjectPtr<USlTexture> Texture = nullptr;
+};
+
+
+class FSlCompTonemappedImageWrapper : public ISlCompImageWrapper
+{
+public:
+	class FPassKey : public FPassKeyBase
+	{
+		friend class FSlCompTonemappedImageWrapper;
+		friend class USlCompEngineSubsystem;
+		explicit FPassKey() = default;
+	};
+
+public:
+	FSlCompTonemappedImageWrapper(const FPassKey&, FSlCompImageWrapperTarget&& InTarget);
+	virtual ~FSlCompTonemappedImageWrapper() = default;
+
+	virtual void CreateTexture(const FPassKeyBase&, TObjectPtr<USlTextureBatch> InBatch) override;
+	virtual void DestroyTexture(const FPassKeyBase&) override;
+
+	virtual void OnTextureUpdated() override;
+
+	virtual UTexture* GetTexture() const override;
+
+	virtual bool MatchesTarget(const FSlCompImageWrapperTarget& InTarget) const override;
+
+private:
+	FSlCompImageWrapperTarget Target;
+
+	// The image wrapper gives us the raw image (and allows sharing the underlying image if some clients do not want tonemapping)
+	TSharedPtr<ISlCompImageWrapper> ImageWrapper;
+
+	TStrongObjectPtr<UTextureRenderTarget2D> TonemappedTexture;
 };
