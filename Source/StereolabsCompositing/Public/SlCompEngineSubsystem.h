@@ -15,7 +15,22 @@
 class FSlCompImageWrapper;
 
 // A target can either be a view or a measure - it is convenient to wrap these together as they only differ in method of construction
-using FSlCompImageWrapperTarget = TVariant<ESlView, ESlMeasure>;
+class FSlCompImageWrapperTarget
+{
+public:
+	FSlCompImageWrapperTarget(ESlView View);
+	FSlCompImageWrapperTarget(ESlMeasure Measure);
+
+	bool operator==(const FSlCompImageWrapperTarget&) const;
+
+	// Returns a view if this target is targeting a view, nullopt otherwise
+	TOptional<ESlView> GetView() const;
+	// Returns a measure if this target is targeting a measure, nullopt otherwise
+	TOptional<ESlMeasure> GetMeasure() const;
+
+private:
+	TVariant<ESlView, ESlMeasure> ViewOrMeasure;
+};
 
 /**
  * 
@@ -54,7 +69,7 @@ public:
 	template <typename T>
 	TSharedPtr<FSlCompImageWrapper> GetOrCreateImageWrapper(T InTarget)
 	{
-		return GetOrCreateImageWrapperImpl(FSlCompImageWrapperTarget{ TInPlaceType<T>(), InTarget });
+		return GetOrCreateImageWrapperImpl(FSlCompImageWrapperTarget{ InTarget });
 	}
 private:
 	TSharedPtr<FSlCompImageWrapper> GetOrCreateImageWrapperImpl(FSlCompImageWrapperTarget&& Target);
@@ -118,7 +133,7 @@ public:
 
 	UTexture2D* GetTexture() const;
 
-	bool Matches(const FSlCompImageWrapperTarget& InTarget);
+	bool Matches(const FSlCompImageWrapperTarget& InTarget) const;
 
 private:
 	// Variant of view or measure

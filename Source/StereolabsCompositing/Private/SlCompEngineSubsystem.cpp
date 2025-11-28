@@ -125,6 +125,57 @@ ESlTextureFormat GetTextureFormatForMeasure(ESlMeasure Measure)
 }
 
 
+FSlCompImageWrapperTarget::FSlCompImageWrapperTarget(ESlView View)
+	: ViewOrMeasure(TInPlaceType<ESlView>(), View)
+{
+}
+
+FSlCompImageWrapperTarget::FSlCompImageWrapperTarget(ESlMeasure Measure)
+	: ViewOrMeasure(TInPlaceType<ESlMeasure>(), Measure)
+{
+}
+
+TOptional<ESlView> FSlCompImageWrapperTarget::GetView() const
+{
+	if (ViewOrMeasure.IsType<ESlView>())
+	{
+		return ViewOrMeasure.Get<ESlView>();
+	}
+	return NullOpt;
+}
+
+TOptional<ESlMeasure> FSlCompImageWrapperTarget::GetMeasure() const
+{
+	if (ViewOrMeasure.IsType<ESlMeasure>())
+	{
+		return ViewOrMeasure.Get<ESlMeasure>();
+	}
+	return NullOpt;
+}
+
+bool FSlCompImageWrapperTarget::operator==(const FSlCompImageWrapperTarget& Other) const
+{
+	if (Other.ViewOrMeasure.GetIndex() != ViewOrMeasure.GetIndex())
+	{
+		return false;
+	}
+
+	// InTarget and Target have the same index
+	if (Other.ViewOrMeasure.IsType<ESlView>())
+	{
+		return Other.ViewOrMeasure.Get<ESlView>() == ViewOrMeasure.Get<ESlView>();
+	}
+	if (Other.ViewOrMeasure.IsType<ESlMeasure>())
+	{
+		return Other.ViewOrMeasure.Get<ESlMeasure>() == ViewOrMeasure.Get<ESlMeasure>();
+	}
+
+	checkNoEntry();
+	return false;
+}
+
+
+
 void USlCompEngineSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	bCanEverTick = true;
@@ -184,7 +235,10 @@ void USlCompEngineSubsystem::Tick(float DeltaTime)
 		return;
 	}
 
-	(void)Batch->Tick();
+	if (Batch->Tick())
+	{
+		// Some textures require tonemapping
+	}
 }
 
 bool USlCompEngineSubsystem::IsTickable() const
@@ -303,22 +357,20 @@ void FSlCompImageWrapper::CreateTexture(const PassKey&, TObjectPtr<USlTextureBat
 		const FIntPoint& Resolution = CameraInformation.Resolution;
 
 		// Create texture
-		if (Target.IsType<ESlView>())
+		if (auto View = Target.GetView())
 		{
-			ESlView View = Target.Get<ESlView>();
-			FName ViewName{ UEnum::GetValueAsString(View) };
+			FName ViewName{ UEnum::GetValueAsString(*View) };
 
 			Texture.Reset(
-				USlViewTexture::CreateGPUViewTexture(ViewName, Resolution.X, Resolution.Y, View, true, GetTextureFormatForView(View))
+				USlViewTexture::CreateGPUViewTexture(ViewName, Resolution.X, Resolution.Y, *View, true, GetTextureFormatForView(*View))
 			);
 		}
-		else if (Target.IsType<ESlMeasure>())
+		else if (auto Measure = Target.GetMeasure())
 		{
-			ESlMeasure Measure = Target.Get<ESlMeasure>();
-			FName MeasureName{ UEnum::GetValueAsString(Measure) };
+			FName MeasureName{ UEnum::GetValueAsString(*Measure) };
 
 			Texture.Reset(
-				USlMeasureTexture::CreateGPUMeasureTexture(MeasureName, Resolution.X, Resolution.Y, Measure, true, GetTextureFormatForMeasure(Measure))
+				USlMeasureTexture::CreateGPUMeasureTexture(MeasureName, Resolution.X, Resolution.Y, *Measure, true, GetTextureFormatForMeasure(*Measure))
 			);
 		}
 		else
@@ -345,23 +397,7 @@ UTexture2D* FSlCompImageWrapper::GetTexture() const
 	return Texture ? Texture->Texture : nullptr;
 }
 
-bool FSlCompImageWrapper::Matches(const FSlCompImageWrapperTarget& InTarget)
+bool FSlCompImageWrapper::Matches(const FSlCompImageWrapperTarget& InTarget) const
 {
-	if (InTarget.GetIndex() != Target.GetIndex())
-	{
-		return false;
-	}
-
-	// InTarget and Target have the same index
-	if (InTarget.IsType<ESlView>())
-	{
-		return InTarget.Get<ESlView>() == Target.Get<ESlView>();
-	}
-	if(InTarget.IsType<ESlMeasure>())
-	{
-		return InTarget.Get<ESlMeasure>() == Target.Get<ESlMeasure>();
-	}
-
-	checkNoEntry();
-	return false;
+	return Target == InTarget;
 }
