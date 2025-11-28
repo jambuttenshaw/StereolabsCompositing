@@ -152,18 +152,18 @@ static bool GetTargetFormatFromPixelFormat(const EPixelFormat PixelFormat, EText
 }
 
 
-FSlCompImageWrapperTarget::FSlCompImageWrapperTarget(ESlView InView, bool bInInverseTonemapping)
+FSlCompImageTarget::FSlCompImageTarget(ESlView InView, bool bInInverseTonemapping)
 	: ViewOrMeasure(TInPlaceType<ESlView>(), InView)
 	, bInverseTonemapping(bInInverseTonemapping)
 {
 }
 
-FSlCompImageWrapperTarget::FSlCompImageWrapperTarget(ESlMeasure InMeasure)
+FSlCompImageTarget::FSlCompImageTarget(ESlMeasure InMeasure)
 	: ViewOrMeasure(TInPlaceType<ESlMeasure>(), InMeasure)
 {
 }
 
-TOptional<ESlView> FSlCompImageWrapperTarget::GetView() const
+TOptional<ESlView> FSlCompImageTarget::GetView() const
 {
 	if (ViewOrMeasure.IsType<ESlView>())
 	{
@@ -172,7 +172,7 @@ TOptional<ESlView> FSlCompImageWrapperTarget::GetView() const
 	return NullOpt;
 }
 
-TOptional<ESlMeasure> FSlCompImageWrapperTarget::GetMeasure() const
+TOptional<ESlMeasure> FSlCompImageTarget::GetMeasure() const
 {
 	if (ViewOrMeasure.IsType<ESlMeasure>())
 	{
@@ -181,7 +181,7 @@ TOptional<ESlMeasure> FSlCompImageWrapperTarget::GetMeasure() const
 	return NullOpt;
 }
 
-bool FSlCompImageWrapperTarget::operator==(const FSlCompImageWrapperTarget& Other) const
+bool FSlCompImageTarget::operator==(const FSlCompImageTarget& Other) const
 {
 	if (Other.ViewOrMeasure.GetIndex() != ViewOrMeasure.GetIndex())
 	{
@@ -357,7 +357,7 @@ void USlCompEngineSubsystem::OnCameraClosed()
 	Batch.Reset();
 }
 
-TSharedPtr<ISlCompImageWrapper> USlCompEngineSubsystem::GetOrCreateImageWrapperImpl(FSlCompImageWrapperTarget&& Target)
+TSharedPtr<ISlCompImageWrapper> USlCompEngineSubsystem::GetOrCreateImageWrapperImpl(FSlCompImageTarget&& Target)
 {
 	// Try to find an existing wrapper over this target
 	for (const auto& WrapperPtr : Wrappers)
@@ -464,7 +464,7 @@ void USlCompEngineSubsystem::DoInverseTonemapping(UTexture* Input, UTextureRende
 }
 
 
-FSlCompImageWrapper::FSlCompImageWrapper(const FPassKey&, FSlCompImageWrapperTarget&& InTarget)
+FSlCompImageWrapper::FSlCompImageWrapper(const FPassKey&, FSlCompImageTarget&& InTarget)
 	: Target(std::move(InTarget))
 {
 }
@@ -531,13 +531,13 @@ UTexture* FSlCompImageWrapper::GetTexture() const
 	return Texture ? Texture->Texture : nullptr;
 }
 
-bool FSlCompImageWrapper::MatchesTarget(const FSlCompImageWrapperTarget& InTarget) const
+bool FSlCompImageWrapper::MatchesTarget(const FSlCompImageTarget& InTarget) const
 {
 	return Target == InTarget;
 }
 
 
-FSlCompTonemappedImageWrapper::FSlCompTonemappedImageWrapper(const FPassKey&, FSlCompImageWrapperTarget&& InTarget)
+FSlCompTonemappedImageWrapper::FSlCompTonemappedImageWrapper(const FPassKey&, FSlCompImageTarget&& InTarget)
 	: Target(std::move(InTarget))
 {
 	checkNoRecursion();
@@ -610,7 +610,7 @@ UTexture* FSlCompTonemappedImageWrapper::GetTexture() const
 	return TonemappedTexture ? TonemappedTexture.Get() : nullptr;
 }
 
-bool FSlCompTonemappedImageWrapper::MatchesTarget(const FSlCompImageWrapperTarget& InTarget) const
+bool FSlCompTonemappedImageWrapper::MatchesTarget(const FSlCompImageTarget& InTarget) const
 {
 	return Target == InTarget;
 }

@@ -14,13 +14,13 @@
 
 
 // A target can either be a view or a measure - it is convenient to wrap these together as they only differ in method of construction
-class FSlCompImageWrapperTarget
+class FSlCompImageTarget
 {
 public:
-	FSlCompImageWrapperTarget(ESlView InView, bool bInInverseTonemapping = false);
-	FSlCompImageWrapperTarget(ESlMeasure InMeasure);
+	FSlCompImageTarget(ESlView InView, bool bInInverseTonemapping = false);
+	FSlCompImageTarget(ESlMeasure InMeasure);
 
-	bool operator==(const FSlCompImageWrapperTarget&) const;
+	bool operator==(const FSlCompImageTarget&) const;
 
 	// Returns a view if this target is targeting a view, nullopt otherwise
 	TOptional<ESlView> GetView() const;
@@ -55,7 +55,7 @@ public:
 
 	virtual UTexture* GetTexture() const = 0;
 
-	virtual bool MatchesTarget(const FSlCompImageWrapperTarget& InTarget) const = 0;
+	virtual bool MatchesTarget(const FSlCompImageTarget& InTarget) const = 0;
 };
 
 
@@ -99,10 +99,10 @@ public:
 	template <typename... Args>
 	TSharedPtr<ISlCompImageWrapper> GetOrCreateImageWrapper(Args... InArgs)
 	{
-		return GetOrCreateImageWrapperImpl(FSlCompImageWrapperTarget{ Forward<Args>(InArgs)... });
+		return GetOrCreateImageWrapperImpl(FSlCompImageTarget{ Forward<Args>(InArgs)... });
 	}
 private:
-	TSharedPtr<ISlCompImageWrapper> GetOrCreateImageWrapperImpl(FSlCompImageWrapperTarget&& Target);
+	TSharedPtr<ISlCompImageWrapper> GetOrCreateImageWrapperImpl(FSlCompImageTarget&& Target);
 
 public:
 
@@ -158,7 +158,7 @@ public:
 	};
 
 public:
-	FSlCompImageWrapper(const FPassKey&, FSlCompImageWrapperTarget&& InTarget);
+	FSlCompImageWrapper(const FPassKey&, FSlCompImageTarget&& InTarget);
 	virtual ~FSlCompImageWrapper();
 
 	// On camera connect / disconnect, a new batch is created
@@ -171,10 +171,10 @@ public:
 
 	virtual UTexture* GetTexture() const override;
 
-	virtual bool MatchesTarget(const FSlCompImageWrapperTarget& InTarget) const override;
+	virtual bool MatchesTarget(const FSlCompImageTarget& InTarget) const override;
 
 private:
-	FSlCompImageWrapperTarget Target;
+	FSlCompImageTarget Target;
 
 	TStrongObjectPtr<USlTextureBatch> TextureBatch = nullptr;
 	TStrongObjectPtr<USlTexture> Texture = nullptr;
@@ -192,7 +192,7 @@ public:
 	};
 
 public:
-	FSlCompTonemappedImageWrapper(const FPassKey&, FSlCompImageWrapperTarget&& InTarget);
+	FSlCompTonemappedImageWrapper(const FPassKey&, FSlCompImageTarget&& InTarget);
 	virtual ~FSlCompTonemappedImageWrapper() = default;
 
 	virtual void CreateTexture(const FPassKeyBase&, TObjectPtr<USlTextureBatch> InBatch) override;
@@ -202,10 +202,10 @@ public:
 
 	virtual UTexture* GetTexture() const override;
 
-	virtual bool MatchesTarget(const FSlCompImageWrapperTarget& InTarget) const override;
+	virtual bool MatchesTarget(const FSlCompImageTarget& InTarget) const override;
 
 private:
-	FSlCompImageWrapperTarget Target;
+	FSlCompImageTarget Target;
 
 	// The image wrapper gives us the raw image (and allows sharing the underlying image if some clients do not want tonemapping)
 	TSharedPtr<ISlCompImageWrapper> ImageWrapper;
