@@ -128,29 +128,6 @@ ESlTextureFormat GetTextureFormatForMeasure(ESlMeasure Measure)
 	}
 }
 
-// Copied from Composure\Private\CompositingElements\CompositingElementPasses.cpp
-static bool GetTargetFormatFromPixelFormat(const EPixelFormat PixelFormat, ETextureRenderTargetFormat& OutRTFormat)
-{
-	switch (PixelFormat)
-	{
-	case PF_G8: OutRTFormat = RTF_R8; return true;
-	case PF_R8G8: OutRTFormat = RTF_RG8; return true;
-	case PF_B8G8R8A8: OutRTFormat = RTF_RGBA8; return true;
-
-	case PF_R16F: OutRTFormat = RTF_R16f; return true;
-	case PF_G16R16F: OutRTFormat = RTF_RG16f; return true;
-	case PF_FloatRGBA: OutRTFormat = RTF_RGBA16f; return true;
-
-	case PF_R32_FLOAT: OutRTFormat = RTF_R32f; return true;
-	case PF_G32R32F: OutRTFormat = RTF_RG32f; return true;
-	case PF_A32B32G32R32F: OutRTFormat = RTF_RGBA32f; return true;
-	case PF_A2B10G10R10: OutRTFormat = RTF_RGB10A2; return true;
-	default:
-		break;
-	}
-	return false;
-}
-
 
 FSlCompImageTarget::FSlCompImageTarget(ESlView InView, bool bInInverseTonemapping)
 	: ViewOrMeasure(TInPlaceType<ESlView>(), InView)
@@ -550,21 +527,19 @@ void FSlCompTonemappedImageWrapper::CreateTexture(const FPassKey&, TObjectPtr<US
 	UTexture2D* SourceTexture2D = Cast<UTexture2D>(SourceTexture);
 	check(SourceTexture2D);
 
-	ETextureRenderTargetFormat Format;
-	if (!GetTargetFormatFromPixelFormat(SourceTexture2D->GetPixelFormat(), Format))
-	{
-		// Fallback format
-		Format = RTF_RGBA8;
-	}
-
 	TonemappedTexture.Reset(NewObject<UTextureRenderTarget2D>(GetTransientPackage()));
 	check(TonemappedTexture);
 
-	TonemappedTexture->RenderTargetFormat = Format;
+	EPixelFormat Format = SourceTexture2D->GetPixelFormat();
+	if (!FTextureRenderTargetResource::IsSupportedFormat(Format))
+	{
+		Format = PF_R8G8B8A8;
+	}
+
 	TonemappedTexture->ClearColor = FLinearColor::Black;
 	TonemappedTexture->bAutoGenerateMips = false;
 	TonemappedTexture->bCanCreateUAV = false;
-	TonemappedTexture->InitAutoFormat(SourceTexture2D->GetSizeX(), SourceTexture2D->GetSizeY());
+	TonemappedTexture->InitCustomFormat(SourceTexture2D->GetSizeX(), SourceTexture2D->GetSizeY(), Format, true);
 	TonemappedTexture->UpdateResourceImmediate(true);
 }
 
