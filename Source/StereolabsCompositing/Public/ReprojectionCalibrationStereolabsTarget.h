@@ -3,8 +3,9 @@
 #include "CoreMinimal.h"
 #include "ReprojectionCalibration.h"
 
-#include "Core/StereolabsBaseTypes.h"
 #include "SlCompTypes.h"
+
+#include "Core/StereolabsBaseTypes.h"
 
 #include "ReprojectionCalibrationStereolabsTarget.generated.h"
 

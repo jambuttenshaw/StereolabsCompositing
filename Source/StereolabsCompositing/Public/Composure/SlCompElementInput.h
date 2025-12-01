@@ -6,6 +6,7 @@
 #include "CompUtilsCameraInterface.h"
 
 #include "Core/StereolabsBaseTypes.h"
+
 #include "SlCompTypes.h"
 
 #include "SlCompElementInput.generated.h"

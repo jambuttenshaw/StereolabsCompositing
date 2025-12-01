@@ -13,7 +13,11 @@
 #include "SlCompEngineSubsystem.generated.h"
 
 
-// A target can either be a view or a measure - it is convenient to wrap these together as they only differ in method of construction
+/**
+ * A target can either be a view or a measure.
+ * Views can also opt in to have tonemapping applied.
+ * The advantage of this is preventing multiple tonemapping passes being executed on the same view each frame.
+ */
 class FSlCompImageTarget
 {
 public:
@@ -35,23 +39,32 @@ private:
 };
 
 
+/**
+ * An image wrapper owns the texture of a view or measure from the camera.
+ * Image wrappers are managed by the engine subsystem to facilitate sharing of textures between clients.
+ */
 class ISlCompImageWrapper
 {
 public:
 	// Pass key idiom is required (rather than simply using friend classes)
 	// so objects can be created with MakeShared - enabled by passing PassKey's by const&
-	class FPassKeyBase
+	class FPassKey
 	{
-	protected:
-		explicit FPassKeyBase() = default;
+		friend class USlCompEngineSubsystem;
+		explicit FPassKey() = default;
 	};
 public:
 	virtual ~ISlCompImageWrapper() = default;
 
-	virtual void CreateTexture(const FPassKeyBase&, TObjectPtr<USlTextureBatch> InBatch) = 0;
-	virtual void DestroyTexture(const FPassKeyBase&) = 0;
+	// On camera connect / disconnect, a new batch is created
+	// Which means we must recreate our texture
+	virtual void CreateTexture(const FPassKey&, TObjectPtr<USlTextureBatch> InBatch) = 0;
 
-	virtual void OnTextureUpdated() {}
+	// Before creation of a new batch, all textures in the old batch must be destroyed
+	// This will happen when camera is connected / disconnected
+	virtual void DestroyTexture(const FPassKey&) = 0;
+
+	virtual void OnTextureUpdated(const FPassKey&) {}
 
 	virtual UTexture* GetTexture() const = 0;
 
@@ -60,13 +73,12 @@ public:
 
 
 /**
- * 
+ * This subsystem is designed for interacting with the Stereolabs ZED camera within the Editor, e.g. for use in Composure.
  */
 UCLASS()
 class STEREOLABSCOMPOSITING_API USlCompEngineSubsystem : public UEngineSubsystem, public FTickableGameObject
 {
 	GENERATED_BODY()
-	
 
 public:
 	USlCompEngineSubsystem();
@@ -150,27 +162,12 @@ private:
 class FSlCompImageWrapper : public ISlCompImageWrapper
 {
 public:
-	class FPassKey : public FPassKeyBase
-	{
-		friend class USlCompEngineSubsystem;
-		friend class FSlCompImageWrapper;
-		explicit FPassKey() = default;
-	};
-
-public:
 	FSlCompImageWrapper(const FPassKey&, FSlCompImageTarget&& InTarget);
 	virtual ~FSlCompImageWrapper();
 
-	// On camera connect / disconnect, a new batch is created
-	// Which means we must recreate our texture
-	virtual void CreateTexture(const FPassKeyBase&, TObjectPtr<USlTextureBatch> InBatch) override;
-
-	// Before creation of a new batch, all textures in the old batch must be destroyed
-	// This will happen when camera is connected / disconnected
-	virtual void DestroyTexture(const FPassKeyBase&) override;
-
+	virtual void CreateTexture(const FPassKey&, TObjectPtr<USlTextureBatch> InBatch) override;
+	virtual void DestroyTexture(const FPassKey&) override;
 	virtual UTexture* GetTexture() const override;
-
 	virtual bool MatchesTarget(const FSlCompImageTarget& InTarget) const override;
 
 private:
@@ -184,24 +181,13 @@ private:
 class FSlCompTonemappedImageWrapper : public ISlCompImageWrapper
 {
 public:
-	class FPassKey : public FPassKeyBase
-	{
-		friend class FSlCompTonemappedImageWrapper;
-		friend class USlCompEngineSubsystem;
-		explicit FPassKey() = default;
-	};
-
-public:
 	FSlCompTonemappedImageWrapper(const FPassKey&, FSlCompImageTarget&& InTarget);
 	virtual ~FSlCompTonemappedImageWrapper() = default;
 
-	virtual void CreateTexture(const FPassKeyBase&, TObjectPtr<USlTextureBatch> InBatch) override;
-	virtual void DestroyTexture(const FPassKeyBase&) override;
-
-	virtual void OnTextureUpdated() override;
-
+	virtual void CreateTexture(const FPassKey&, TObjectPtr<USlTextureBatch> InBatch) override;
+	virtual void DestroyTexture(const FPassKey&) override;
+	virtual void OnTextureUpdated(const FPassKey&) override;
 	virtual UTexture* GetTexture() const override;
-
 	virtual bool MatchesTarget(const FSlCompImageTarget& InTarget) const override;
 
 private:

@@ -290,7 +290,7 @@ void USlCompEngineSubsystem::Tick(float DeltaTime)
 		{
 			if (auto Wrapper = WrapperPtr.Pin())
 			{
-				Wrapper->OnTextureUpdated();
+				Wrapper->OnTextureUpdated(ISlCompImageWrapper::FPassKey{});
 			}
 		}
 	}
@@ -406,60 +406,43 @@ void USlCompEngineSubsystem::DoInverseTonemapping(UTexture* Input, UTextureRende
 	}
 
 	check(InverseTonemappingMID && "Material instance dynamic should exist!");
+	check(Output && Output->GetResource() && "Output should exist!");
+	check(Input && Input->GetResource() && "Input should exist!");
 
-	if (!Output)
+	InverseTonemappingMID->SetTextureParameterValue("Color", Input);
+
+	// This is a user-facing function, so we'd rather make sure that shaders are ready by the time we render, in order to ensure we don't draw with a fallback material
+	InverseTonemappingMID->EnsureIsComplete();
+	FTextureRenderTargetResource* RenderTargetResource = Output->GameThread_GetRenderTargetResource();
+
+	FCanvas RenderCanvas(
+		RenderTargetResource,
+		nullptr,
+		FGameTime(),
+		GMaxRHIFeatureLevel);
+
+	if (!Canvas)
 	{
-		UE_LOG(LogStereolabsCompositing, Error, TEXT("SlCompEngineSubsystem: Output must be non-null."));
+		Canvas = NewObject<UCanvas>(GetTransientPackage(), NAME_None);
 	}
-	else if (!Output->GetResource())
+	Canvas->Init(Output->SizeX, Output->SizeY, nullptr, &RenderCanvas);
+
 	{
-		UE_LOG(LogStereolabsCompositing, Error, TEXT("SlCompEngineSubsystem: Render target has been released."));
-	}
-	else if (!Input)
-	{
-		UE_LOG(LogStereolabsCompositing, Error, TEXT("SlCompEngineSubsystem: Input must be non-null."));
-	}
-	else if (!Input->GetResource())
-	{
-		UE_LOG(LogStereolabsCompositing, Error, TEXT("SlCompEngineSubsystem: Input has been released."));
-	}
-	else
-	{
-		InverseTonemappingMID->SetTextureParameterValue("Color", Input);
+		RHI_BREADCRUMB_EVENT_GAMETHREAD_F("DrawMaterialToRenderTarget", "DrawMaterialToRenderTarget: %s", Output->GetFName());
 
-		// This is a user-facing function, so we'd rather make sure that shaders are ready by the time we render, in order to ensure we don't draw with a fallback material
-		InverseTonemappingMID->EnsureIsComplete();
-		FTextureRenderTargetResource* RenderTargetResource = Output->GameThread_GetRenderTargetResource();
+		ENQUEUE_RENDER_COMMAND(FlushDeferredResourceUpdateCommand)(
+			[RenderTargetResource](FRHICommandListImmediate& RHICmdList)
+			{
+				RenderTargetResource->FlushDeferredResourceUpdate(RHICmdList);
+			});
 
-		FCanvas RenderCanvas(
-			RenderTargetResource,
-			nullptr,
-			FGameTime(),
-			GMaxRHIFeatureLevel);
+		Canvas->K2_DrawMaterial(InverseTonemappingMID, FVector2D(0, 0), FVector2D(Output->SizeX, Output->SizeY), FVector2D(0, 0));
 
-		if (!Canvas)
-		{
-			Canvas = NewObject<UCanvas>(GetTransientPackage(), NAME_None);
-		}
-		Canvas->Init(Output->SizeX, Output->SizeY, nullptr, &RenderCanvas);
+		RenderCanvas.Flush_GameThread();
+		Canvas->Canvas = nullptr;
 
-		{
-			RHI_BREADCRUMB_EVENT_GAMETHREAD_F("DrawMaterialToRenderTarget", "DrawMaterialToRenderTarget: %s", Output->GetFName());
-
-			ENQUEUE_RENDER_COMMAND(FlushDeferredResourceUpdateCommand)(
-				[RenderTargetResource](FRHICommandListImmediate& RHICmdList)
-				{
-					RenderTargetResource->FlushDeferredResourceUpdate(RHICmdList);
-				});
-
-			Canvas->K2_DrawMaterial(InverseTonemappingMID, FVector2D(0, 0), FVector2D(Output->SizeX, Output->SizeY), FVector2D(0, 0));
-
-			RenderCanvas.Flush_GameThread();
-			Canvas->Canvas = nullptr;
-
-			//UpdateResourceImmediate must be called here to ensure mips are generated.
-			Output->UpdateResourceImmediate(false);
-		}
+		//UpdateResourceImmediate must be called here to ensure mips are generated.
+		Output->UpdateResourceImmediate(false);
 	}
 }
 
@@ -477,7 +460,7 @@ FSlCompImageWrapper::~FSlCompImageWrapper()
 	}
 }
 
-void FSlCompImageWrapper::CreateTexture(const FPassKeyBase&, TObjectPtr<USlTextureBatch> InBatch)
+void FSlCompImageWrapper::CreateTexture(const FPassKey&, TObjectPtr<USlTextureBatch> InBatch)
 {
 	TextureBatch.Reset(InBatch);
 
@@ -516,7 +499,7 @@ void FSlCompImageWrapper::CreateTexture(const FPassKeyBase&, TObjectPtr<USlTextu
 	}
 }
 
-void FSlCompImageWrapper::DestroyTexture(const FPassKeyBase&)
+void FSlCompImageWrapper::DestroyTexture(const FPassKey&)
 {
 	if (TextureBatch && Texture)
 	{
@@ -560,7 +543,7 @@ FSlCompTonemappedImageWrapper::FSlCompTonemappedImageWrapper(const FPassKey&, FS
 	}
 }
 
-void FSlCompTonemappedImageWrapper::CreateTexture(const FPassKeyBase&, TObjectPtr<USlTextureBatch> InBatch)
+void FSlCompTonemappedImageWrapper::CreateTexture(const FPassKey&, TObjectPtr<USlTextureBatch> InBatch)
 {
 	UTexture* SourceTexture = ImageWrapper->GetTexture();
 	check(SourceTexture);
@@ -585,12 +568,12 @@ void FSlCompTonemappedImageWrapper::CreateTexture(const FPassKeyBase&, TObjectPt
 	TonemappedTexture->UpdateResourceImmediate(true);
 }
 
-void FSlCompTonemappedImageWrapper::DestroyTexture(const FPassKeyBase&)
+void FSlCompTonemappedImageWrapper::DestroyTexture(const FPassKey&)
 {
 	TonemappedTexture.Reset();
 }
 
-void FSlCompTonemappedImageWrapper::OnTextureUpdated()
+void FSlCompTonemappedImageWrapper::OnTextureUpdated(const FPassKey&)
 {
 	// Perform tonemapping pass on image from underlying wrapper
 	if (!TonemappedTexture)

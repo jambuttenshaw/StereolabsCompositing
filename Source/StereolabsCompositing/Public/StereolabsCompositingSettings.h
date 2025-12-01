@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Core/StereolabsBaseTypes.h"
+
 #include "StereolabsCompositingSettings.generated.h"
 
 /**
