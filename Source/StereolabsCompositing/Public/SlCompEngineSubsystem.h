@@ -117,23 +117,7 @@ private:
 	TSharedPtr<ISlCompImageWrapper> GetOrCreateImageWrapperImpl(FSlCompImageTarget&& Target);
 
 public:
-
 	void DoInverseTonemapping(UTexture* Input, UTextureRenderTarget2D* Output);
-
-public:
-	// Camera properties
-
-	UFUNCTION(BlueprintCallable)
-	const FMatrix& GetProjectionMatrix() { return CameraProjectionMatrix; }
-	UFUNCTION(BlueprintCallable)
-	const FMatrix& GetInvProjectionMatrix() { return CameraInvProjectionMatrix; }
-
-	UFUNCTION(BlueprintCallable)
-	inline float GetHorizontalFieldOfView() { return HorizontalFieldOfView;}
-	
-	UFUNCTION(BlueprintCallable)
-	inline float GetVerticalFieldOfView() { return VerticalFieldOfView;}
-	
 
 private:
 	/** Current batch */
@@ -145,11 +129,6 @@ private:
 	TArray<TWeakPtr<ISlCompImageWrapper>> Wrappers;
 
 	bool bCanEverTick = false;
-
-	FMatrix CameraProjectionMatrix;
-	FMatrix CameraInvProjectionMatrix;
-	float HorizontalFieldOfView = 90.0f;
-	float VerticalFieldOfView = 90.0f;
 
 	// For inverse tonemapping passes
 	UPROPERTY(Transient)

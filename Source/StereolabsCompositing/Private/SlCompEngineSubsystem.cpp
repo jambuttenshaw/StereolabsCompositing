@@ -298,25 +298,6 @@ void USlCompEngineSubsystem::OnCameraOpened()
 			Wrapper->CreateTexture(FSlCompImageWrapper::FPassKey{}, Batch.Get());
 		}
 	}
-
-	// Calculate camera parameters
-	FSlCameraParameters CameraParameters = GSlCameraProxy->CameraInformation.CalibrationParameters.LeftCameraParameters;
-	HorizontalFieldOfView = FMath::DegreesToRadians(CameraParameters.HFOV);
-	VerticalFieldOfView = FMath::DegreesToRadians(CameraParameters.VFOV);
-
-	// Calculate a projection matrix based off of the camera properties
-	// Introduction of a near plane (0.1cm) is required to make the matrix invertible
-	// The choice of near plane doesn't matter - as we don't ever care about the depth value after projection,
-	// and we use the data sampled from the depth texture to un-project anyway.
-	const float HalfFovX = 0.5f * HorizontalFieldOfView;
-	const float HalfFovY = 0.5f * VerticalFieldOfView;
-	CameraProjectionMatrix = FMatrix(
-		FPlane(1.0f / FMath::Tan(HalfFovX), 0.0f,							0.0f, 0.0f),
-		FPlane(0.0f,							1.0f / FMath::Tan(HalfFovY),		0.0f, 0.0f),
-		FPlane(0.0f,							0.0f,							0.0f, 1.0f),
-		FPlane(0.0f,							0.0f,							0.1f, 0.0f)
-	);
-	CameraInvProjectionMatrix = CameraProjectionMatrix.Inverse();
 }
 
 void USlCompEngineSubsystem::OnCameraClosed()

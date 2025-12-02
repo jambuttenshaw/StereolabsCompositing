@@ -48,6 +48,10 @@ public:
 	virtual TObjectPtr<UTexture> GetTexture() override;
 	//~ End UReprojectionCalibrationTargetBase interface
 
+	//~ Begin ICompUtilsCameraInterface interface
+	virtual bool GetCameraIntrinsicData(FCompUtilsCameraIntrinsicData& OutData) override;
+	//~ End ICompUtilsCameraInterface interface
+
 private:
 	// Wrapper is left as nullptr if failed
 	void FetchNewWrapper();

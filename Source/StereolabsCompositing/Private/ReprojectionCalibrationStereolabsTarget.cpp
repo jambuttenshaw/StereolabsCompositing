@@ -1,6 +1,7 @@
 #include "ReprojectionCalibrationStereolabsTarget.h"
 
 #include "SlCompEngineSubsystem.h"
+#include "SlCompHelpers.h"
 
 
 #if WITH_EDITOR
@@ -57,4 +58,11 @@ void UReprojectionCalibrationStereolabsTarget::FetchNewWrapper()
 	{
 		ImageWrapper = nullptr;
 	}
+}
+
+bool UReprojectionCalibrationStereolabsTarget::GetCameraIntrinsicData(FCompUtilsCameraIntrinsicData& OutData)
+{
+	return InputType == ESlCompInputType::SlComp_View
+		? FSlCompHelpers::GetCameraIntrinsicData(ViewSource, OutData)
+		: FSlCompHelpers::GetCameraIntrinsicData(MeasureSource, OutData);
 }
