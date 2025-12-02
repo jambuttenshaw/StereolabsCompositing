@@ -522,6 +522,13 @@ FSlCompTonemappedImageWrapper::FSlCompTonemappedImageWrapper(const FPassKey&, FS
 
 void FSlCompTonemappedImageWrapper::CreateTexture(const FPassKey&, TObjectPtr<USlTextureBatch> InBatch)
 {
+	// If there is no batch, then the underlying image wrapper will not have a texture either
+	if (!InBatch)
+	{
+		return;
+	}
+
+	// If batch is valid then source texture should definitely exist
 	UTexture* SourceTexture = ImageWrapper->GetTexture();
 	check(SourceTexture);
 	UTexture2D* SourceTexture2D = Cast<UTexture2D>(SourceTexture);
